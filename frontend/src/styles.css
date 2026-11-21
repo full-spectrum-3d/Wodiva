@@ -1,0 +1,554 @@
+/*
+ * Wodiva — tokeny i style bazowe. Źródło wartości: /DESIGN.md (kontrasty policzone tam).
+ * Komponenty używają wyłącznie tych zmiennych — bez heksów w stylach komponentów.
+ * Tryb ciemny: light-dark() + color-scheme (system albo data-theme="light|dark" na <html>).
+ */
+
+@import 'tailwindcss';
+
+/*
+ * Tokeny DESIGN.md jako zmienne Tailwinda: ta sama nazwa działa w CSS (var(--color-bg))
+ * i w klasach (bg-bg, text-text-muted, bg-level-high-tint, rounded-md, font-mono, max-w-content).
+ * Domyślne palety/fonty/promienie/breakpointy Tailwinda wyłączone (initial) — tylko wartości z DESIGN.md.
+ * `static`: zmienne trafiają do :root zawsze, także te używane tylko przez var() w CSS.
+ */
+@theme static {
+  --color-*: initial;
+
+  /* Neutralne i marka */
+  --color-bg: light-dark(#f6f4ee, #121714);
+  --color-surface: light-dark(#ffffff, #1b211e);
+  --color-surface-sunken: light-dark(#eae6db, #232a26);
+  --color-text: light-dark(#1b1f1d, #eceae3);
+  --color-text-muted: light-dark(#4d5450, #a8afa9);
+  --color-border: light-dark(#d3cec2, #2f3732);
+  --color-border-strong: light-dark(#767b74, #7f8780);
+  --color-primary: light-dark(#0d5868, #7cc6d6);
+  --color-primary-hover: light-dark(#09434f, #a3dae6);
+  --color-on-primary: light-dark(#ffffff, #0b1a1e);
+  --color-primary-tint: light-dark(#e2edf0, #15303a);
+  --color-focus: var(--color-primary);
+
+  /* Skala stanu wody / ryzyka suszy */
+  --color-level-good-text: light-dark(#1d5a85, #8ec3ea);
+  --color-level-good-tint: light-dark(#e2edf5, #16293a);
+  --color-level-good-fill: light-dark(#2f78ad, #8ec3ea);
+  --color-level-watch-text: light-dark(#7a5200, #e9b84f);
+  --color-level-watch-tint: light-dark(#f8eccd, #33280e);
+  --color-level-watch-fill: light-dark(#a87612, #e9b84f);
+  --color-level-high-text: light-dark(#97301a, #f29a7c);
+  --color-level-high-tint: light-dark(#f8e1d9, #3a1d15);
+  --color-level-high-fill: light-dark(#b8421f, #f29a7c);
+  --color-level-unknown-text: light-dark(#4d5450, #a8afa9);
+  --color-level-unknown-tint: light-dark(#e7e6e1, #232a26);
+  --color-level-unknown-fill: light-dark(#80857f, #a8afa9);
+
+  /* Semantyczne */
+  --color-success: light-dark(#22603a, #86c99a);
+  --color-success-tint: light-dark(#e1efe4, #16301f);
+  --color-warning: var(--color-level-watch-text);
+  --color-warning-tint: var(--color-level-watch-tint);
+  --color-danger: var(--color-level-high-text);
+  --color-danger-tint: var(--color-level-high-tint);
+  --color-info: var(--color-primary);
+  --color-info-tint: var(--color-primary-tint);
+
+  /* Typografia */
+  --font-*: initial;
+  --font-sans:
+    'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  --text-*: initial;
+  --text-xs: 0.875rem;
+  --text-sm: 1rem;
+  --text-base: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+  --text-display: 3rem;
+  --leading-*: initial;
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-body: 1.55;
+
+  /* Breakpointy z DESIGN.md §4 */
+  --breakpoint-*: initial;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 90rem;
+
+  /* Szerokości (max-w-content, max-w-form, max-w-measure) */
+  --container-content: 72rem;
+  --container-form: 36rem;
+  --container-measure: 68ch;
+
+  /* Kształt, cienie, ruch */
+  --radius-*: initial;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --shadow-*: initial;
+  --shadow-overlay: 0 -1px 0 var(--color-border), 0 8px 24px rgb(0 0 0 / 0.16);
+  --ease-*: initial;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Tokeny bez odpowiednika w Tailwindzie (odstępy: --spacing 0.25rem → p-4 = --space-4, p-6 = --space-5, p-8 = --space-6) */
+:root {
+  color-scheme: light dark;
+
+  --font-body: var(--font-sans);
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --measure: var(--container-measure);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  --gutter: var(--space-4);
+  --content-max: var(--container-content);
+  --form-max: var(--container-form);
+  --tap-min: 3rem;
+
+  --border-thin: 1px;
+  --border-control: 2px;
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+}
+
+/* Ciemny wariant Tailwinda idzie za tym samym przełącznikiem co light-dark() */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not([data-theme='light'], [data-theme='light'] *)) {
+      @slot;
+    }
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@media (width >= 48rem) {
+  :root {
+    --gutter: var(--space-5);
+    --text-xl: 2rem;
+    --text-2xl: 2.75rem;
+    --text-display: 4rem;
+  }
+}
+
+@media (width >= 90rem) {
+  :root {
+    --gutter: var(--space-6);
+  }
+}
+
+@layer base {
+  /* Reset */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-block: var(--space-8);
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  img,
+  picture,
+  svg,
+  video,
+  canvas {
+    display: block;
+    max-width: 100%;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  button,
+  [role='button'],
+  label,
+  select,
+  input[type='checkbox'],
+  input[type='radio'] {
+    touch-action: manipulation;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  li,
+  dd {
+    overflow-wrap: break-word;
+  }
+
+  /* Typografia */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: var(--weight-bold);
+    line-height: var(--leading-tight);
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-snug);
+  }
+
+  p,
+  li {
+    max-width: var(--measure);
+    text-wrap: pretty;
+  }
+
+  small {
+    font-size: var(--text-sm);
+  }
+
+  code,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+    font-size: 0.95em;
+  }
+
+  table {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  a {
+    color: var(--color-primary);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+
+  @media (hover: hover) {
+    a:hover {
+      text-decoration-thickness: 2px;
+    }
+  }
+
+  /* Fokus — zawsze widoczny przy klawiaturze */
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-primary-tint);
+    color: var(--color-text);
+  }
+
+  /* Narzędzia */
+  .visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skip-link {
+    position: absolute;
+    inset-block-start: var(--space-2);
+    inset-inline-start: var(--space-2);
+    z-index: 100;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    border-radius: var(--radius-md);
+    font-weight: var(--weight-bold);
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus-visible {
+    transform: none;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Preferencje użytkownika */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --color-bg: #ffffff;
+    --shadow-overlay: none;
+  }
+
+  body {
+    font-size: 11pt;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* Komponenty bazowe z DESIGN.md §5 — klasy współdzielone przez ekrany */
+@layer components {
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--tap-min);
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+
+  .btn-primary {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    border: 0;
+  }
+
+  .btn-primary[aria-disabled='true'] {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-muted);
+    cursor: default;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-primary);
+    border: var(--border-control) solid var(--color-primary);
+  }
+
+  @media (hover: hover) {
+    .btn-primary:not([aria-disabled='true']):hover {
+      background: var(--color-primary-hover);
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-primary-tint);
+    }
+  }
+
+  .link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+    min-height: var(--tap-min);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .field {
+    display: block;
+    width: 100%;
+    min-height: var(--tap-min);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-surface);
+    border: var(--border-control) solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+  }
+
+  .field[aria-invalid='true'] {
+    border-color: var(--color-level-high-fill);
+  }
+
+  .field-error {
+    margin-top: var(--space-2);
+    color: var(--color-level-high-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .field-error::before {
+    content: '! ';
+  }
+
+  .step-legend {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+  }
+
+  .step-num {
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-sunken);
+    font-family: var(--font-mono);
+  }
+
+  .report-section {
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: var(--border-thin) solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  @media (width >= 48rem) {
+    .report-section {
+      padding: var(--space-5);
+    }
+  }
+
+  /* Krok bez oceny: nagłówek widoczny (kolejność KOWR), treść wyciszona */
+  .step-disabled {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-muted);
+  }
+
+  @media print {
+    .report-section {
+      break-inside: avoid;
+    }
+  }
+
+  /* Panel od dołu na telefonie (DESIGN.md §6.4) */
+  .kolba-dialog {
+    margin: auto auto 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 85dvh;
+    padding: var(--space-4);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .kolba-dialog::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  .crop-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-height: var(--tap-min);
+    padding: var(--space-3) var(--space-4);
+    padding-inline-end: var(--space-7);
+    background: var(--color-surface);
+    /* border-strong: obrys to jedyna widoczna granica kontrolki (radio jest sr-only), WCAG 1.4.11 ≥ 3:1 */
+    border: var(--border-control) solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+
+  .crop-tile:has(:checked) {
+    background: var(--color-primary-tint);
+    border-color: var(--color-primary);
+  }
+
+  .crop-tile:has(:focus-visible) {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .crop-check {
+    position: absolute;
+    inset-block-start: var(--space-3);
+    inset-inline-end: var(--space-3);
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--color-primary);
+    visibility: hidden;
+  }
+
+  .crop-tile:has(:checked) .crop-check {
+    visibility: visible;
+  }
+}

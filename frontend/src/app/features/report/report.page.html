@@ -1,0 +1,305 @@
+@if (report(); as r) {
+  @if (r.mock) {
+    <p class="bg-level-watch-tint px-(--gutter) py-3 text-center text-sm font-semibold text-level-watch-text" role="note">
+      Dane przykładowe — nie do decyzji.
+    </p>
+  }
+
+  <div class="mx-auto max-w-content px-(--gutter) pt-8 pb-32 lg:pb-16">
+    <!-- 0. Nagłówek raportu -->
+    <header class="border-b border-border pb-6">
+      <p class="text-sm font-semibold text-text-muted uppercase">Raport wodny działki</p>
+      <h1 #heading tabindex="-1" class="mt-1 font-mono text-xl wrap-anywhere md:text-2xl">{{ r.parcel.id }}</h1>
+      <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+        @if (r.parcel.commune) {
+          <dt class="text-text-muted">Gmina</dt><dd>{{ r.parcel.commune }}</dd>
+        }
+        <dt class="text-text-muted">Powierzchnia</dt><dd class="num">{{ r.parcel.area_ha | number: '1.0-2' }} ha</dd>
+        <dt class="text-text-muted">Uprawa</dt><dd>{{ r.water?.crop_name ?? r.crop }}</dd>
+        <dt class="text-text-muted">Data analizy</dt><dd class="num">{{ r.analysis_date }}</dd>
+        @if (r.water) {
+          <dt class="text-text-muted">Dane pogodowe do</dt><dd class="num">{{ r.water.meteo_until }}</dd>
+        }
+      </dl>
+      <div class="no-print mt-5 flex flex-wrap gap-3">
+        @if (!r.mock) {
+          <a class="btn-primary" [href]="'/api/report/' + r.id + '.pdf'" target="_blank" rel="noopener">Pobierz PDF</a>
+        }
+        <button type="button" class="btn-secondary" (click)="print()">Drukuj</button>
+        <a class="btn-secondary" routerLink="/" [queryParams]="r.mock ? { mock: true } : {}">Nowa analiza</a>
+      </div>
+    </header>
+
+    <div class="mt-8 grid gap-8 lg:grid-cols-[2fr_1fr]">
+      <div class="space-y-6">
+        <!-- 1. Ocena stanu wody -->
+        <section aria-labelledby="step-1" class="report-section">
+          <h2 id="step-1" class="step-legend"><span class="step-num" aria-hidden="true">1</span> Ocena stanu wody</h2>
+          @if (r.water; as w) {
+            @for (note of assessmentNotes(); track $index) {
+              <p class="mt-4 border-l-4 bg-surface-sunken p-3" [class]="note.severity === 'krytyczne' ? levelClass.high.edge : levelClass.watch.edge">
+                {{ note.message }}
+              </p>
+            }
+            @if (summary(); as s) {
+              <p class="mt-4 text-xl leading-tight font-bold text-balance md:text-2xl">{{ s.headline }}</p>
+              <div class="mt-3"><app-level-badge [level]="level()" /></div>
+            } @else if (r.mock) {
+              <div class="mt-4"><app-level-badge level="unknown" /></div>
+              <p class="mt-2 text-text-muted">Dla danych przykładowych nie pokazujemy oceny ryzyka.</p>
+            } @else if (summaryResource.isLoading()) {
+              <p class="mt-4 text-text-muted" role="status">Wczytuję ocenę ryzyka…</p>
+            } @else if (summaryResource.error()) {
+              <div class="mt-4 border-l-4 border-level-high-fill bg-level-high-tint p-3" role="alert">
+                <p class="text-level-high-text">Nie udało się wczytać oceny ryzyka. Pozostałe dane raportu są poniżej.</p>
+                <button type="button" class="btn-secondary mt-2" (click)="summaryResource.reload()">Spróbuj ponownie</button>
+              </div>
+            }
+
+            @if (soilWater(); as sw) {
+              <div class="mt-6">
+                <app-water-gauge [availablePct]="sw.available_pct" [percentile]="sw.percentile_10y" />
+              </div>
+            } @else {
+              <p class="mt-4 text-text-muted">Poza sezonem wegetacji uprawy nie liczymy zapasu wody w glebie.</p>
+            }
+
+            <dl class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div class="rounded-md bg-surface-sunken p-3">
+                <dt class="text-sm text-text-muted">Bilans wodny 60 dni</dt>
+                <dd class="mt-1 text-lg font-bold num">{{ w.climate.kbw_60d_mm | number: '1.0-0' }} mm</dd>
+              </div>
+              <div class="rounded-md bg-surface-sunken p-3">
+                <dt class="text-sm text-text-muted">Opad 30 dni</dt>
+                <dd class="mt-1 text-lg font-bold num">
+                  {{ w.climate.precip_30d_mm | number: '1.0-0' }} mm
+                  @if (w.climate.precip_30d_norm_mm != null) {
+                    <span class="block text-sm font-normal text-text-muted">norma {{ w.climate.precip_30d_norm_mm | number: '1.0-0' }} mm</span>
+                  }
+                </dd>
+              </div>
+              <div class="rounded-md bg-surface-sunken p-3">
+                <dt class="text-sm text-text-muted">Dni bez opadu</dt>
+                <dd class="mt-1 text-lg font-bold num">{{ w.climate.dry_spell_current_days }}</dd>
+              </div>
+              @if (soilWater(); as sw) {
+                <div class="rounded-md bg-surface-sunken p-3">
+                  <dt class="text-sm text-text-muted">Dni stresu w sezonie</dt>
+                  <dd class="mt-1 text-lg font-bold num">{{ sw.stress_days_season }}</dd>
+                </div>
+              }
+            </dl>
+
+            @if (w.climate.kbw_threshold_mm != null && w.climate.kbw_period_mm != null) {
+              <p class="mt-4 border-l-4 bg-surface-sunken p-3" [class]="w.climate.kbw_drought ? levelClass.high.edge : levelClass.good.edge">
+                <strong>{{ w.climate.kbw_drought ? 'Susza rolnicza wg KBW' : 'Brak suszy rolniczej wg KBW' }}</strong>
+                — bilans {{ w.climate.kbw_period_label ?? 'okresu' }}: <span class="num">{{ w.climate.kbw_period_mm | number: '1.0-0' }} mm</span>,
+                próg dla tej uprawy i gleby: <span class="num">{{ w.climate.kbw_threshold_mm | number: '1.0-0' }} mm</span>
+                (metoda IUNG, Dz.U. 2019 poz. 739).
+              </p>
+            }
+
+            @if (summary()?.findings?.length) {
+              <ul class="mt-5 list-disc space-y-1 pl-6">
+                @for (f of summary()!.findings; track f) {
+                  <li>{{ f }}</li>
+                }
+              </ul>
+            }
+
+            <div class="mt-8">
+              <app-risk-calendar [calendar]="w.climate.risk_calendar" [years]="w.climate.years_analyzed.length" />
+            </div>
+
+            @if (waterConfidence(); as c) {
+              <p class="mt-5 text-sm">Pewność: {{ c.level }} — {{ c.reason }}</p>
+            }
+          } @else {
+            <div class="mt-4"><app-level-badge level="unknown" /></div>
+            <p class="mt-3">
+              Nie udało się ocenić stanu wody na tej działce, więc raport nie podaje zaleceń — najpierw ocena, potem działania.
+            </p>
+            @for (note of r.limitations; track $index) {
+              @if (note.severity !== 'info') {
+                <p class="mt-2 text-text-muted">{{ note.message }}</p>
+              }
+            }
+          }
+        </section>
+
+        <!-- 2. Przyczyny -->
+        <section aria-labelledby="step-2" class="report-section" [class.step-disabled]="!hasAssessment()">
+          <h2 id="step-2" class="step-legend"><span class="step-num" aria-hidden="true">2</span> Przyczyny</h2>
+          @if (!hasAssessment()) {
+            <p class="mt-3">Bez oceny stanu wody nie wskazujemy przyczyn.</p>
+          } @else if (causes().length) {
+            <ol class="mt-4 space-y-4">
+              @for (c of causes(); track c.code) {
+                <li>
+                  <p class="font-semibold">{{ c.rank }}. {{ c.label }}</p>
+                  @if (c.contribution_mm != null) {
+                    <div class="mt-1 flex items-center gap-3">
+                      <div class="h-3 flex-1 rounded-sm bg-surface-sunken" aria-hidden="true">
+                        <div class="h-full rounded-sm bg-level-watch-fill" [style.width.%]="(c.contribution_mm / maxContribution()) * 100"></div>
+                      </div>
+                      <span class="w-20 text-right text-sm num">{{ c.contribution_mm | number: '1.0-0' }} mm</span>
+                    </div>
+                  }
+                  <p class="mt-1 text-text-muted">{{ c.evidence }}</p>
+                </li>
+              }
+            </ol>
+          } @else {
+            <p class="mt-3 text-text-muted">Analiza nie wskazała wyraźnych przyczyn niedoboru wody.</p>
+          }
+        </section>
+
+        <!-- 3. Retencja -->
+        <section aria-labelledby="step-3" class="report-section" [class.step-disabled]="!hasAssessment()">
+          <h2 id="step-3" class="step-legend"><span class="step-num" aria-hidden="true">3</span> Zatrzymanie wody (retencja)</h2>
+          <div class="mt-4">
+            @if (hasAssessment()) {
+              <app-recommendation-list [items]="retention()" />
+            } @else {
+              <p>Bez oceny stanu wody nie podajemy zaleceń.</p>
+            }
+          </div>
+        </section>
+
+        <!-- 4. Agrotechnika -->
+        <section aria-labelledby="step-4" class="report-section" [class.step-disabled]="!hasAssessment()">
+          <h2 id="step-4" class="step-legend"><span class="step-num" aria-hidden="true">4</span> Agrotechnika</h2>
+          <div class="mt-4">
+            @if (hasAssessment()) {
+              <app-recommendation-list [items]="agrotech()" />
+              @if (r.water?.scenarios?.length) {
+                <h3 class="mt-6 text-lg">Co by dało…</h3>
+                <ul class="mt-2 space-y-3">
+                  @for (sc of r.water!.scenarios; track sc.code) {
+                    <li>
+                      <p class="font-semibold">{{ sc.name }}</p>
+                      <p class="text-text-muted">{{ sc.description }}</p>
+                      <p class="mt-1 num">
+                        Dni stresu w {{ sc.reference_year }}: {{ sc.stress_days_baseline }} → <strong>{{ sc.stress_days_scenario }}</strong>
+                        @if (sc.stress_days_saved > 0) {
+                          (o {{ sc.stress_days_saved }} mniej)
+                        }
+                      </p>
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <p>Bez oceny stanu wody nie podajemy zaleceń.</p>
+            }
+          </div>
+        </section>
+
+        <!-- 5. Nawadnianie -->
+        <section aria-labelledby="step-5" class="report-section" [class.step-disabled]="!hasAssessment()">
+          <h2 id="step-5" class="step-legend"><span class="step-num" aria-hidden="true">5</span> Nawadnianie</h2>
+          @if (!hasAssessment()) {
+            <p class="mt-3">Bez oceny stanu wody nie podajemy zaleceń nawadniania.</p>
+          } @else if (r.irrigation; as irr) {
+            @for (note of irrigationNotes(); track $index) {
+              <p class="mt-4 border-l-4 bg-surface-sunken p-3" [class]="levelClass.watch.edge">{{ note.message }}</p>
+            }
+            <div class="mt-4"><app-level-badge [level]="irrigationLevel()" [label]="'Nawadnianie: ' + irr.status" /></div>
+            <p class="mt-3">{{ irr.reason }}</p>
+            @if (irr.status === 'zalecane') {
+              <dl class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
+                @if (irr.first_day) {
+                  <div><dt class="text-sm text-text-muted">Pierwszy dzień</dt><dd class="font-bold num">{{ irr.first_day }}</dd></div>
+                }
+                @if (irr.net_dose_mm != null) {
+                  <div>
+                    <dt class="text-sm text-text-muted">Dawka netto / brutto</dt>
+                    <dd class="font-bold num">{{ irr.net_dose_mm | number: '1.0-0' }} / {{ irr.gross_dose_mm | number: '1.0-0' }} mm</dd>
+                  </div>
+                }
+                @if (irr.split_into) {
+                  <div><dt class="text-sm text-text-muted">Podział</dt><dd class="font-bold num">{{ irr.split_into }} {{ irr.split_into | i18nPlural: doses }}</dd></div>
+                }
+                @if (irr.volume_m3 != null) {
+                  <div><dt class="text-sm text-text-muted">Objętość wody</dt><dd class="font-bold num">{{ irr.volume_m3 | number: '1.0-0' }} m³</dd></div>
+                }
+              </dl>
+              @if (irr.forecast_available) {
+                <p class="mt-3 text-sm num">
+                  Prognoza 7 dni: opad {{ irr.forecast_precip_7d_mm | number: '1.0-0' }} mm, potrzeby uprawy
+                  {{ irr.forecast_etc_7d_mm | number: '1.0-0' }} mm.
+                </p>
+              }
+            }
+            <p class="mt-4 text-sm text-text-muted">{{ irr.legal_note }}</p>
+          } @else {
+            <p class="mt-3 text-text-muted">Raport nie zawiera oceny nawadniania dla tej działki.</p>
+          }
+        </section>
+
+        <!-- 6. Źródła i ograniczenia -->
+        <section aria-labelledby="step-6" class="report-section">
+          <h2 id="step-6" class="step-legend"><span class="step-num" aria-hidden="true">6</span> Źródła danych i ograniczenia</h2>
+          <div class="mt-4">
+            <app-report-sources [sources]="r.sources" [limitations]="r.limitations" [confidence]="r.confidence" />
+          </div>
+        </section>
+      </div>
+
+      <aside class="space-y-6" aria-label="Mapa działki i asystent">
+        @if (!r.mock) {
+          <figure class="report-section">
+            @if (!mapFailed()) {
+              <img [ngSrc]="'/api/report/' + r.id + '/map.png'" width="910" height="910" class="h-auto w-full rounded-sm"
+                [alt]="'Mapa działki ' + r.parcel.id + ' z ciekami, rowami i obniżeniami terenu'" (error)="mapFailed.set(true)" />
+            } @else {
+              <p class="text-text-muted">Brak mapy dla tego raportu.</p>
+            }
+            <figcaption class="mt-2 text-sm text-text-muted">Granica działki na czerwono. Źródła warstw w sekcji 6.</figcaption>
+          </figure>
+        } @else {
+          <p class="report-section text-text-muted">Mapa jest dostępna tylko dla prawdziwej analizy.</p>
+        }
+
+        @if (r.mock) {
+          <p class="report-section no-print text-text-muted">Kolba odpowiada tylko na pytania o zapisany raport — nie działa dla danych przykładowych.</p>
+        } @else if (wide()) {
+          <section aria-labelledby="kolba-heading" class="report-section no-print">
+            <h2 id="kolba-heading" class="text-xl">Zapytaj Kolbę</h2>
+            <div class="mt-3"><app-kolba-chat [reportId]="r.id" /></div>
+          </section>
+        }
+      </aside>
+    </div>
+  </div>
+
+  @if (!r.mock && !wide()) {
+    <div class="no-print fixed inset-x-0 bottom-0 z-10 bg-surface p-4 shadow-overlay">
+      <button type="button" class="btn-primary w-full" aria-haspopup="dialog" (click)="openKolba()">Zapytaj Kolbę</button>
+    </div>
+    <dialog #kolbaDialog class="kolba-dialog" aria-labelledby="kolba-dialog-heading">
+      <div class="flex items-center justify-between gap-3 border-b border-border pb-3">
+        <h2 id="kolba-dialog-heading" class="text-xl">Zapytaj Kolbę</h2>
+        <button type="button" class="btn-secondary" (click)="kolbaDialog.close()">Zamknij</button>
+      </div>
+      <div class="mt-3"><app-kolba-chat [reportId]="r.id" /></div>
+    </dialog>
+  }
+} @else if (fetched.error()) {
+  <div class="mx-auto max-w-form px-(--gutter) pt-8">
+    @if (notFound()) {
+      <h1 #heading tabindex="-1" class="text-2xl">Ten raport nie jest już dostępny.</h1>
+      <p class="mt-3 text-text-muted">Raport mógł zostać usunięty albo adres jest niepełny. Zrób nową analizę — zajmie ok. 20 sekund.</p>
+      <a class="btn-primary mt-6" routerLink="/">Nowa analiza</a>
+    } @else {
+      <h1 #heading tabindex="-1" class="text-2xl">Nie udało się wczytać raportu.</h1>
+      <p class="mt-3 text-text-muted">Serwer analiz nie odpowiada albo nie ma połączenia z internetem.</p>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <button type="button" class="btn-primary" (click)="fetched.reload()">Spróbuj ponownie</button>
+        <a class="btn-secondary" routerLink="/">Nowa analiza</a>
+      </div>
+    }
+  </div>
+} @else {
+  <p class="mx-auto max-w-form px-(--gutter) pt-8 text-text-muted" role="status">Wczytuję raport…</p>
+}
