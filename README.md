@@ -1,6 +1,6 @@
 # Wodiva – asystent wody dla działki rolnej
 
-HackNation 2026 · zadanie KOWR „Zatrzymaj wodę, chroń plony” · zespół: `[NAZWA ZESPOŁU]`
+HackNation 2026 · zadanie KOWR „Zatrzymaj wodę, chroń plony” · zespół: **Full Spectrum 3D**
 
 Rolnik podaje numer działki ewidencyjnej (albo wskazuje ją na mapie), uprawę i datę. Wodiva pobiera dla tej działki dane meteorologiczne, satelitarne, glebowe, hydrologiczne i przestrzenne z ostatnich 10 lat i liczy:
 
@@ -13,10 +13,10 @@ Na tej podstawie podaje rekomendacje w kolejności wymaganej przez KOWR: retencj
 | Materiał zgłoszenia | Gdzie |
 | :--- | :--- |
 | Działająca wersja | `[LINK DO APLIKACJI]` |
-| Repozytorium (prywatne) | `[LINK DO REPOZYTORIUM]` |
+| Repozytorium (prywatne) | https://github.com/full-spectrum-3d/Wodiva |
 | Prezentacja PDF (do 10 slajdów) | `[ŚCIEŻKA / LINK]` |
 | Film z działania (do 3 min) | `[LINK]` |
-| Raporty wygenerowane przez prototyp | `[ŚCIEŻKA, np. docs/raporty/]` |
+| Raporty wygenerowane przez prototyp | `docs/raporty/` |
 
 ## Problem, rozwiązanie, korzyści
 
@@ -105,8 +105,8 @@ docker compose --profile era5 up -d era5-updater
 
 ```bash
 cd backend
-python -m scripts.download_era5_cube --url "[LINK DO GOTOWEJ KOSTKI]"
-python -m scripts.build_era5_cube --start 2015-01-01
+python -m scripts.build_era5_cube --start 2006-01-01
+python -m scripts.download_era5_cube --url "<link do gotowej kostki>"
 python -m scripts.update_era5
 ```
 
@@ -137,7 +137,7 @@ python -m scripts.validate --limit 5
 
 **1. Ocena stanu wilgotności.**
 
-- Meteo dzienne od 2015 r. (ERA5-Land), ostatnie dni i prognoza 7 dni (Open-Meteo), kontrola z najbliższą stacją synoptyczną IMGW-PIB.
+- Meteo dzienne od 2006 r. (ERA5-Land), ostatnie dni i prognoza 7 dni (Open-Meteo), kontrola z najbliższą stacją synoptyczną IMGW-PIB.
 - Parowanie wzorcowe ET0 liczone metodą FAO-56 Penman-Monteith.
 - Klimatyczny bilans wodny w okresach sześciodekadowych z progami suszy z rozporządzenia MRiRW (Dz.U. 2019 poz. 739), jak w systemie IUNG-PIB.
 - Wskaźnik opadu SPI (1 i 3 mies.), anomalia ET0, dni upalne, okresy bez opadu.
@@ -220,7 +220,7 @@ POST /api/analyze
 | Przestrzenne | Użytek gruntowy | WMS KIEG (`uzytki`, `kontury`) | cała Polska | dane PZGiK / starostw |
 | Przestrzenne | Rzeźba terenu | NMT GUGiK – usługa wysokości `services.gugik.gov.pl/nmt` (GetHByPointList); zapas: Copernicus DEM GLO-30 | siatka 2–6 m (do 30 000 punktów); zapas 30 m | dane PZGiK; Copernicus DEM z podaniem źródła |
 | Przestrzenne | Pokrycie terenu, zadrzewienia | BDOT10k, WMS „kompozycja BDOT10k” (Geoportal) | promień 500 m | dane PZGiK |
-| Meteorologiczne | Historia dobowa: opad, temperatura, punkt rosy, wiatr, promieniowanie, ciśnienie | ERA5-Land, Copernicus C3S (kostka lokalna) | 0,1°, od 01.01.2015 | Licence to use Copernicus Products |
+| Meteorologiczne | Historia dobowa: opad, temperatura, punkt rosy, wiatr, promieniowanie, ciśnienie | ERA5-Land, Copernicus C3S (kostka lokalna) | 0,1°, 2006–2026 | Licence to use Copernicus Products |
 | Meteorologiczne | Ostatnie dni (których nie ma jeszcze w ERA5) i prognoza 7 dni | Open-Meteo | komórka 0,1° | CC BY 4.0; bezpłatnie do użytku niekomercyjnego |
 | Meteorologiczne | Kontrola z pomiarem | IMGW-PIB, dane synoptyczne dobowe i bieżące | najbliższa stacja synop | dane publiczne IMGW-PIB, z podaniem źródła |
 | Satelitarne | Stan roślin: NDVI, NDMI, NDWI, NDRE | Sentinel-2 L2A, katalog Earth Search (AWS) | 10 m, od 07.2015 | Copernicus data policy |
@@ -240,11 +240,11 @@ POST /api/analyze
 | :--- | :--- | :--- |
 | ULDK, EGiB, Open-Meteo, IMGW-PIB, SoilGrids | na żądanie, przy każdej analizie (z pamięcią podręczną) | data i godzina w sekcji „Źródła danych” raportu |
 | Sentinel-2, Landsat, Sentinel-1, NMT, BDOT10k, PIG-PIB, EDO | na żądanie, przy każdej analizie (z pamięcią podręczną) | jw. |
-| Kostka ERA5-Land | pobrana wcześniej, aktualizowana codziennie | zakres `2015-01-01` → `[DATA KOŃCA]`, zbudowana `[DATA]`, rozmiar `[GB]`, link do pobrania: `[LINK]` |
+| Kostka ERA5-Land | pobrana wcześniej z Copernicus CDS, aktualizowana codziennie | zakres 2006–2026; pobrana 21–22.11.2026 (`build_era5_cube`); koniec kostki na bieżąco w `/api/health` |
 | Progi KBW (`data/water/kbw_thresholds.csv`) | przepisane z aktu prawnego | 21.11.2026 |
 | Parametry upraw, współrzędne stacji IMGW, fenologia, reguły, rejestr źródeł (`data/`) | przygotowane wcześniej | 21.11.2026 |
 
-**Historia meteo pochodzi z kostki ERA5-Land.** To lokalny plik Zarr z danymi dobowymi dla całej Polski od 2015 r.:
+**Historia meteo pochodzi z kostki ERA5-Land.** To lokalny plik Zarr z danymi dobowymi dla całej Polski z lat 2006–2026, więc obejmuje z zapasem wymagane 10 lat wstecz dla każdej daty analizy:
 
 - budowany raz skryptem `scripts.build_era5_cube` z danych godzinowych Copernicus CDS;
 - codziennie uzupełniany przez `scripts.update_era5` (usługa `era5-updater` w Docker Compose).
@@ -285,7 +285,7 @@ Archiwum Open-Meteo jest wyłącznie zapasem na wypadek braku kostki. Raport pok
 - Bez `ANTHROPIC_API_KEY` asystent działa w trybie gotowych pytań, bez modelu.
 - Ocena, przyczyny, rekomendacje i nawadnianie są liczone deterministycznie, bez AI. Uczenie maszynowe nie jest używane.
 
-**AI przy tworzeniu.** `[uzupełnić: jakie narzędzia AI zespół wykorzystał przy pisaniu kodu i dokumentacji]`
+**AI przy tworzeniu.** Zespół korzystał z Claude (Anthropic) jako asystenta przy pisaniu kodu, testów i dokumentacji. Każdą zmianę zespół przeglądał, uruchamiał i sprawdzał testami oraz na prawdziwych działkach; wyniki aplikacji nie pochodzą z modelu. Według warunków Anthropic prawa do treści wygenerowanych przez model przysługują użytkownikowi, więc nie ograniczają przeniesienia praw do rozwiązania na KOWR.
 
 ## 7. Licencje, płatne usługi i koszty
 
@@ -296,7 +296,25 @@ Archiwum Open-Meteo jest wyłącznie zapasem na wypadek braku kostki. Raport pok
   - własna instancja Open-Meteo (kod AGPL, uruchamiany jako osobna usługa).
 - **Claude API (asystent):** płatne za użycie. Jedno pytanie to ok. 10 tys. tokenów wejścia i 0,5 tys. tokenów wyjścia, czyli ok. 0,05 USD według cennika `claude-opus-5-5`. Alternatywa bez kosztów: tryb gotowych pytań.
 - **CDS (ERA5):** bezpłatne konto i klucz, zlecenia w kolejce.
-- **Infrastruktura prototypu:** serwer 2 vCPU / 4 GB RAM / 20 GB dysku, ok. `[KWOTA]` zł miesięcznie.
+- **Infrastruktura prototypu:** serwer 2 vCPU / 4 GB RAM / 20 GB dysku. Szacunek: ok. 25–90 zł miesięcznie (typowe ceny serwerów VPS w UE).
+
+**Usługi zewnętrzne i interfejsy API – warunki korzystania.** Oprócz licencji samych danych (sekcja 4) korzystamy z regulaminów serwisów, które te dane udostępniają:
+
+| Usługa / API | Co z niej pobieramy | Warunki korzystania |
+| :--- | :--- | :--- |
+| ULDK GUGiK, usługa wysokości NMT GUGiK, WMS BDOT10k i KIEG (Geoportal), eksport EGiB | działka, teren, hydrologia, użytki | dane PZGiK udostępniane bezpłatnie (ustawa Prawo geodezyjne i kartograficzne, art. 40a) |
+| Earth Search (Element 84, AWS Open Data) | katalog i pliki Sentinel-2 | publiczny katalog STAC bez konta; dane Sentinel-2 wg Copernicus data policy |
+| Microsoft Planetary Computer | Sentinel-1 RTC, Landsat | bezpłatny dostęp bez konta (krótkotrwałe tokeny SAS) wg regulaminu Planetary Computer; dane wg licencji zbiorów |
+| AWS Open Data (Copernicus DEM) | zapasowy model terenu | Copernicus DEM: bezpłatna licencja z podaniem źródła |
+| Copernicus CDS | ERA5-Land do kostki | bezpłatne konto, Licence to use Copernicus Products |
+| Open-Meteo | ostatnie dni i prognoza | bezpłatnie do użytku niekomercyjnego, dane CC BY 4.0; przy użyciu komercyjnym plan płatny |
+| IMGW-PIB (danepubliczne.imgw.pl) | kontrola meteo | dane publiczne, wymagane podanie źródła |
+| ISRIC SoilGrids | gleba | CC BY 4.0 |
+| PIG-PIB (cbdgmapa.pgi.gov.pl) | wody podziemne | dane publiczne, z podaniem źródła |
+| Copernicus EMS – EDO | wskaźnik CDI | bezpłatnie, z podaniem źródła |
+| Claude API (Anthropic) | odpowiedzi asystenta „Kolba” | płatne wg cennika; warunki komercyjne Anthropic; do modelu trafia tylko raport działki (bez danych osobowych) |
+
+**Zgodność licencji z przeniesieniem praw na KOWR** (regulamin §2 ust. 10 i §5). Kod rozwiązania jest w całości autorstwa zespołu. Wszystkie biblioteki mają licencje permisywne (MIT, BSD, Apache-2.0, PSF), które pozwalają na dowolne użycie, modyfikację i rozpowszechnianie, także komercyjne. Kod Open-Meteo (AGPL) nie jest częścią rozwiązania: korzystamy tylko z jego publicznego API. Dane pochodzą z publicznych źródeł, a ich licencje wymagają jedynie podania źródła, które raport podaje automatycznie.
 
 ## 8. Znane ograniczenia
 
@@ -420,8 +438,6 @@ Rozbieżności widać od razu, a każda część raportu ma ocenę pewności z u
 
 ## Do uzupełnienia przed zgłoszeniem
 
-- [ ] Nazwa zespołu (bez imion i nazwisk) i linki w tabeli na początku.
-- [ ] Sekcja 5: zakres, data zbudowania, rozmiar i link do kostki ERA5-Land.
-- [ ] Sekcja 6: narzędzia AI użyte przy tworzeniu.
-- [ ] Sekcja 7: miesięczny koszt serwera.
+- [ ] Link do działającej wersji (tabela na początku i tabela zgodności).
+- [ ] Prezentacja PDF i film – linki w tabeli na początku.
 - [ ] `docs/raporty/`: kilka raportów PDF wygenerowanych przez prototyp.
