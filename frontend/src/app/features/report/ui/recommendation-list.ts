@@ -2,10 +2,12 @@ import { Component, computed, input } from '@angular/core';
 
 import { Recommendation } from '../../../core/report.model';
 import { PRIORITY_LABEL } from '../levels';
+import { EvidenceRef } from './evidence-ref';
 
 /** Rekomendacje jednej kategorii po priorytecie (DESIGN.md §5 „Rekomendacja”). */
 @Component({
   selector: 'app-recommendation-list',
+  imports: [EvidenceRef],
   template: `
     @if (sorted().length) {
       <ol class="space-y-4">
@@ -19,7 +21,7 @@ import { PRIORITY_LABEL } from '../levels';
                 <span>
                   Na podstawie:
                   @for (id of rec.evidence_ids; track id; let last = $last) {
-                    <a href="/api/evidence" target="_blank" rel="noopener" [attr.aria-label]="id + ' — rejestr źródeł, nowa karta'">{{ id }}</a>{{ last ? '' : ', ' }}
+                    <app-evidence-ref [id]="id" />{{ last ? '' : ', ' }}
                   }
                 </span>
               }

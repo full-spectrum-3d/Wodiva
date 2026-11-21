@@ -120,13 +120,28 @@ export interface Report {
   confidence: Confidence[];
   sources: DataSource[];
   limitations: Limitation[];
+  /** Raport z ?mock=true — zapisywany i obsługiwany jak zwykły, różni się tylko tą flagą. */
   mock: boolean;
+  /** Ocena ryzyka liczona przez backend przy zapisie; null w raportach sprzed tej zmiany. */
+  summary?: RiskSummary | null;
 }
 
-export interface ReportSummary {
-  report_id: string;
+/** core/schemas.py: RiskSummary */
+export interface RiskSummary {
   status: string;
   risk_level: ConfidenceLevel | null;
   headline: string;
   findings: string[];
+}
+
+/** report/summary.py: ReportSummary — GET /report/{id}/summary */
+export interface ReportSummary extends RiskSummary {
+  report_id: string;
+}
+
+/** report/api.py: EvidenceItem — GET /evidence/{id} */
+export interface EvidenceItem {
+  id: string;
+  source: string;
+  purpose: string;
 }

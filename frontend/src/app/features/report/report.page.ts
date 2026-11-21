@@ -30,7 +30,7 @@ export class ReportPage {
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
   private readonly title = inject(Title);
-  /** Raport przekazany z formularza w stanie nawigacji — raporty z ?mock=true nie są zapisywane w backendzie. */
+  /** Raport przekazany z formularza w stanie nawigacji — oszczędza ponowne pobranie zaraz po analizie. */
   private readonly passed = (inject(Location).getState() as { report?: Report } | null)?.report;
 
   private readonly fromState = computed(() => (this.passed?.id === this.id() ? this.passed : undefined));
@@ -40,12 +40,15 @@ export class ReportPage {
   protected readonly notFound = computed(() => (this.fetched.error() as HttpErrorResponse | undefined)?.status === 404);
   // value() rzuca, gdy zasób jest w stanie błędu — czytamy tylko przez hasValue().
   protected readonly report = computed(() => this.fromState() ?? (this.fetched.hasValue() ? this.fetched.value() : undefined));
+  /** /summary tylko dla starszych raportów, które nie mają jeszcze Report.summary. */
   protected readonly summaryResource = httpResource<ReportSummary>(() => {
     const r = this.report();
-    return r && !r.mock ? `/api/report/${encodeURIComponent(r.id)}/summary` : undefined;
+    return r && !r.summary ? `/api/report/${encodeURIComponent(r.id)}/summary` : undefined;
   });
-  /** Ocena ryzyka (headline, risk_level) pochodzi wyłącznie z /summary — backend liczy ją z wielu wskaźników. */
-  protected readonly summary = computed(() => (this.summaryResource.hasValue() ? this.summaryResource.value() : undefined));
+  /** Ocena ryzyka (headline, risk_level) liczona wyłącznie w backendzie — frontend jej nie szacuje. */
+  protected readonly summary = computed(
+    () => this.report()?.summary ?? (this.summaryResource.hasValue() ? this.summaryResource.value() : undefined),
+  );
 
   protected readonly soilWater = computed(() => this.report()?.water?.soil_water ?? null);
   protected readonly level = computed(() => levelFromRisk(this.summary()?.risk_level));

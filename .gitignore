@@ -17,3 +17,5 @@ docs/validation.csv
 NOTATKI_POZA_REPO.md
 PODZIAL_PRACY.md
 *.zip
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

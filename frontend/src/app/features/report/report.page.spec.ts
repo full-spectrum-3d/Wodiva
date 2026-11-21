@@ -80,13 +80,25 @@ describe('ReportPage', () => {
     expect(el.textContent).toContain('Bez oceny stanu wody nie podajemy zaleceń nawadniania.');
   });
 
-  it('shows mock banner and skips summary, PDF and map for mock reports', async () => {
-    const { http, el, settle } = await setup({ report: reportFixture({ mock: true }) });
+  it('uses Report.summary without asking /summary', async () => {
+    const summary = { status: 'ok', risk_level: 'średnia' as const, headline: 'Podwyższone ryzyko suszy.', findings: ['KBW poniżej progu.'] };
+    const { http, el, settle } = await setup({ report: reportFixture({ summary }) });
     http.expectNone('/api/report/abc123def456/summary');
     await settle();
+    expect(el.textContent).toContain('Podwyższone ryzyko suszy.');
+    expect(el.textContent).toContain('Ryzyko podwyższone');
+    expect(el.textContent).toContain('KBW poniżej progu.');
+  });
+
+  it('treats a mock report like a saved one, with a banner', async () => {
+    const summary = { status: 'ok', risk_level: 'niska' as const, headline: 'Brak oznak suszy.', findings: [] };
+    const { el, settle } = await setup({ report: reportFixture({ mock: true, summary }) });
+    await settle();
     expect(el.textContent).toContain('Dane przykładowe');
-    expect(el.querySelector('a[href$=".pdf"]')).toBeNull();
-    expect(el.querySelector('img')).toBeNull();
+    expect(el.textContent).toContain('Brak oznak suszy.');
+    expect(el.querySelector('a[href="/api/report/abc123def456.pdf"]')).toBeTruthy();
+    expect(el.querySelector('img')).toBeTruthy();
+    expect(el.querySelector('app-kolba-chat')).toBeTruthy();
   });
 
   it('offers retry when the report cannot be loaded for reasons other than 404', async () => {

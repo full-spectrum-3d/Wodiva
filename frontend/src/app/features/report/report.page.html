@@ -22,9 +22,7 @@
         }
       </dl>
       <div class="no-print mt-5 flex flex-wrap gap-3">
-        @if (!r.mock) {
-          <a class="btn-primary" [href]="'/api/report/' + r.id + '.pdf'" target="_blank" rel="noopener">Pobierz PDF</a>
-        }
+        <a class="btn-primary" [href]="'/api/report/' + r.id + '.pdf'" target="_blank" rel="noopener">Pobierz PDF</a>
         <button type="button" class="btn-secondary" (click)="print()">Drukuj</button>
         <a class="btn-secondary" routerLink="/" [queryParams]="r.mock ? { mock: true } : {}">Nowa analiza</a>
       </div>
@@ -44,9 +42,6 @@
             @if (summary(); as s) {
               <p class="mt-4 text-xl leading-tight font-bold text-balance md:text-2xl">{{ s.headline }}</p>
               <div class="mt-3"><app-level-badge [level]="level()" /></div>
-            } @else if (r.mock) {
-              <div class="mt-4"><app-level-badge level="unknown" /></div>
-              <p class="mt-2 text-text-muted">Dla danych przykładowych nie pokazujemy oceny ryzyka.</p>
             } @else if (summaryResource.isLoading()) {
               <p class="mt-4 text-text-muted" role="status">Wczytuję ocenę ryzyka…</p>
             } @else if (summaryResource.error()) {
@@ -247,23 +242,17 @@
       </div>
 
       <aside class="space-y-6" aria-label="Mapa działki i asystent">
-        @if (!r.mock) {
-          <figure class="report-section">
-            @if (!mapFailed()) {
-              <img [ngSrc]="'/api/report/' + r.id + '/map.png'" width="910" height="910" class="h-auto w-full rounded-sm"
-                [alt]="'Mapa działki ' + r.parcel.id + ' z ciekami, rowami i obniżeniami terenu'" (error)="mapFailed.set(true)" />
-            } @else {
-              <p class="text-text-muted">Brak mapy dla tego raportu.</p>
-            }
-            <figcaption class="mt-2 text-sm text-text-muted">Granica działki na czerwono. Źródła warstw w sekcji 6.</figcaption>
-          </figure>
-        } @else {
-          <p class="report-section text-text-muted">Mapa jest dostępna tylko dla prawdziwej analizy.</p>
-        }
+        <figure class="report-section">
+          @if (!mapFailed()) {
+            <img [ngSrc]="'/api/report/' + r.id + '/map.png'" width="910" height="910" class="h-auto w-full rounded-sm"
+              [alt]="'Mapa działki ' + r.parcel.id + ' z ciekami, rowami i obniżeniami terenu'" (error)="mapFailed.set(true)" />
+          } @else {
+            <p class="text-text-muted">Brak mapy dla tego raportu.</p>
+          }
+          <figcaption class="mt-2 text-sm text-text-muted">Granica działki na czerwono. Źródła warstw w sekcji 6.</figcaption>
+        </figure>
 
-        @if (r.mock) {
-          <p class="report-section no-print text-text-muted">Kolba odpowiada tylko na pytania o zapisany raport — nie działa dla danych przykładowych.</p>
-        } @else if (wide()) {
+        @if (wide()) {
           <section aria-labelledby="kolba-heading" class="report-section no-print">
             <h2 id="kolba-heading" class="text-xl">Zapytaj Kolbę</h2>
             <div class="mt-3"><app-kolba-chat [reportId]="r.id" /></div>
@@ -273,7 +262,7 @@
     </div>
   </div>
 
-  @if (!r.mock && !wide()) {
+  @if (!wide()) {
     <div class="no-print fixed inset-x-0 bottom-0 z-10 bg-surface p-4 shadow-overlay">
       <button type="button" class="btn-primary w-full" aria-haspopup="dialog" (click)="openKolba()">Zapytaj Kolbę</button>
     </div>
