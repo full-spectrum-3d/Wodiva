@@ -3,6 +3,9 @@ from __future__ import annotations
 from app.core.schemas import SoilInfo, WaterState
 from app.land.models import DataStatus, LandResult, Level, SectionConfidence
 
+# ten sam próg co water.service.MIN_RELIABLE_YEARS (land nie importuje water)
+MIN_RELIABLE_YEARS = 3
+
 
 def _level(score: float) -> Level:
     if score >= 0.7:
@@ -21,6 +24,9 @@ def water_section(water: WaterState | None, soil: SoilInfo | None) -> SectionCon
     if water is None:
         return _section("ocena wilgotności", 0.0, ["brak bilansu wodnego"])
     score, reasons = 0.8, [f"bilans wodny z danych meteorologicznych za {len(water.climate.years_analyzed)} lat"]
+    if len(water.climate.years_analyzed) < MIN_RELIABLE_YEARS:
+        score -= 0.4
+        reasons.append("krótka historia meteo: stan wody w glebie może być zaniżony")
     if water.era5_until is None:
         score -= 0.1
         reasons.append("historia meteo z archiwum Open-Meteo zamiast kostki ERA5")

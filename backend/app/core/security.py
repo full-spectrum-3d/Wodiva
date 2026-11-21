@@ -8,6 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import get_settings
 
 LIMITED_PATHS = ("/api/analyze", "/api/assistant", "/api/parcel")
+MAX_TRACKED = 10_000
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -22,6 +23,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 request.client.host if request.client else "unknown"
             )
             now = time.monotonic()
+            if len(self.hits) > MAX_TRACKED:
+                self._forget_idle(now)
             window = self.hits[ip]
             while window and now - window[0] > 60:
                 window.popleft()
@@ -32,3 +35,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
+
+    def _forget_idle(self, now: float) -> None:
+        idle = [ip for ip, window in self.hits.items() if not window or now - window[-1] > 60]
+        for ip in idle:
+            del self.hits[ip]

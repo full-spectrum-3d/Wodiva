@@ -107,3 +107,11 @@ async def test_real_sdk_request_shape(report, monkeypatch):
     assert "server-side-fallback-2026-07-01" in seen[0].headers["anthropic-beta"]
     assert body["system"][2]["cache_control"] == {"type": "ephemeral"}
     assert result.mode == "AI" and result.evidence == ["E01"]
+
+
+async def test_daily_limit_switches_to_offline(report, fake_model, monkeypatch):
+    monkeypatch.setattr(land_settings(), "assistant_daily_limit", 1)
+    monkeypatch.setattr(kolba, "_usage", {"day": None, "count": 0})
+    assert (await kolba.answer(report, "Co z wodą?")).mode == "AI"
+    limited = await kolba.answer(report, "Co z wodą?")
+    assert limited.mode == "bez AI (dzienny limit)" and len(fake_model.calls) == 1

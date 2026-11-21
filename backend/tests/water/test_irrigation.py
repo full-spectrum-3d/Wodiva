@@ -6,7 +6,7 @@ from shapely.geometry import box
 
 from app.water.engine.crops import get_crop
 from app.water.engine.soil_water import simulate
-from app.water.irrigation import advise
+from app.water.irrigation import UNKNOWN_LAND_USE_NOTE, advise
 from app.water.parcel import build_parcel
 from app.water.soil import layers_from_category
 
@@ -36,6 +36,14 @@ def test_dry_soil_recommends_irrigation_with_dose():
     assert adv.net_dose_mm and adv.net_dose_mm > 0
     assert adv.volume_m3 == round(adv.gross_dose_mm * 1.0 * 10, 0)
     assert adv.forecast_available
+
+
+def test_unknown_land_use_warns_instead_of_silent_advice():
+    sim, days = _sim(0.1)
+    adv = advise(sim, get_crop("ziemniak"), _parcel(None), days[-1], _forecast(days[-1], 0.0))
+    assert adv.status == "zalecane" and adv.reason.endswith(UNKNOWN_LAND_USE_NOTE)
+    known = advise(sim, get_crop("ziemniak"), _parcel(True), days[-1], _forecast(days[-1], 0.0))
+    assert UNKNOWN_LAND_USE_NOTE not in known.reason
 
 
 def test_wet_soil_no_irrigation():

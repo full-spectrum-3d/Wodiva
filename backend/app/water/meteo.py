@@ -50,7 +50,8 @@ def with_et0(frame: pd.DataFrame, lat: float) -> pd.DataFrame:
 def fill_gaps(frame: pd.DataFrame, start: date, end: date) -> tuple[pd.DataFrame, int]:
     index = pd.Index([d.date() for d in pd.date_range(start, end, freq="D")], name="date")
     full = frame.reindex(index)
-    missing = int(full["tmax_c"].isna().sum())
+    # dzień z luką w dowolnej kolumnie (nie tylko tmax): NaN w opadzie czy promieniowaniu psuje cały bilans wody
+    missing = int(full[COLUMNS].isna().any(axis=1).sum())
     if missing:
         doy = pd.Series([d.timetuple().tm_yday for d in index], index=index)
         for col in COLUMNS:
@@ -134,6 +135,8 @@ async def load(lat: float, lon: float, analysis_date: date, years: int) -> Meteo
     merged = pd.concat(parts)
     merged = merged[~merged.index.duplicated(keep="first")].sort_index()
     merged = merged[(merged.index >= start) & (merged.index <= analysis_date)]
+    if merged.empty:
+        raise SourceError("meteo", "brak danych meteorologicznych do daty analizy")
     meteo_until = max(merged.index)
     full, missing = fill_gaps(merged[COLUMNS], min(merged.index), meteo_until)
     if meteo_until < analysis_date:

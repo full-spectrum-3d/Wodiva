@@ -8,7 +8,8 @@ services:
     volumes:
       - wodiva-var:/app/var
     ports:
-      - "8000:8000"
+      # tylko z tego hosta: z zewnątrz API idzie przez nginx, który nadpisuje X-Forwarded-For
+      - "127.0.0.1:8000:8000"
     restart: unless-stopped
 
   frontend:
