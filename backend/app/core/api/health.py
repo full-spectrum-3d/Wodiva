@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter
 
-from app.core.config import get_settings
 from app.water.sources import era5
 
 router = APIRouter()
@@ -17,6 +16,5 @@ async def health() -> dict:
         "era5_cube": {
             "available": ds is not None,
             "until": era5.cube_end(ds).isoformat() if ds is not None else None,
-            "path": str(get_settings().era5_cube_path),
         },
     }

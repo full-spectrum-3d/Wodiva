@@ -141,6 +141,8 @@ async def load(lat: float, lon: float, analysis_date: date, years: int) -> Meteo
         raise SourceError("meteo", "brak danych meteorologicznych do daty analizy")
     meteo_until = max(merged.index)
     full, missing = fill_gaps(merged[COLUMNS], min(merged.index), meteo_until)
+    gaps = merged[COLUMNS].reindex(full.index).isna().any(axis=1)
+    origin.update({d: "uzupełnione" for d, gap in gaps.items() if gap})
     if meteo_until < analysis_date:
         limitations.append(
             Limitation(

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
 
     app_env: str = "dev"
-    cors_origins: str = "*"
+    cors_origins: str = ""
     data_dir: Path = BACKEND_DIR / "data"
     cache_path: Path = BACKEND_DIR / "var" / "cache.sqlite"
     era5_cube_path: Path = BACKEND_DIR / "var" / "era5_land_pl.zarr"

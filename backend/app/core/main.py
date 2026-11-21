@@ -68,19 +68,22 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Wodiva API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(RateLimitMiddleware)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
-    )
+    origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Content-Type"],
+        )
     for router in (health.router, parcel.router, analyze.router):
         app.include_router(router, prefix="/api")
     for module in ("app.report.api", "app.assistant.api"):
-        try:
-            app.include_router(importlib.import_module(module).router, prefix="/api")
-        except ModuleNotFoundError:
-            pass
+        found = _optional_module(module)
+        if found is None:
+            log.warning("pominięto router %s: moduł nie istnieje", module)
+            continue
+        app.include_router(found.router, prefix="/api")
     return app
 
 

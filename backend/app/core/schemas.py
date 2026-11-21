@@ -67,7 +67,7 @@ class MeteoDay(BaseModel):
     rs_mj: float | None = None
     pressure_kpa: float | None = None
     et0_mm: float | None = None
-    source: Literal["era5", "openmeteo", "imgw", "prognoza"] = "era5"
+    source: Literal["era5", "openmeteo", "imgw", "prognoza", "uzupełnione"] = "era5"
 
 
 class StationCheck(BaseModel):
