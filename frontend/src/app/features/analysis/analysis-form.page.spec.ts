@@ -1,9 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
 
 import { AnalysisFormPage, analysisDateRange, toLocalIso } from './analysis-form.page';
+import { ParcelPicker } from './parcel-picker';
 
 const CROPS = [
   { code: 'pszenica_ozima', name: 'Pszenica ozima', critical_period: '05-01 – 06-30', critical_label: 'strzelanie w źdźbło' },
@@ -65,6 +67,26 @@ describe('AnalysisFormPage', () => {
     expect(summary?.textContent).toContain('Wybierz uprawę');
     expect(el.querySelector('#parcel-id')?.getAttribute('aria-invalid')).toBe('true');
     http.expectNone('/api/analyze');
+  });
+
+  it('picks the parcel clicked on the map: fills the field and outlines it', async () => {
+    const { fixture, el, http, settle } = await setup();
+    const picker = fixture.debugElement.query(By.directive(ParcelPicker)).componentInstance as ParcelPicker;
+    picker.picked.emit({ lat: 52.18, lon: 21.56 });
+    const req = http.expectOne((r) => r.url === '/api/parcel' && r.params.get('lat') === '52.18' && r.params.get('lon') === '21.56');
+    const geometry = { type: 'Polygon', coordinates: [[[21.56, 52.18], [21.561, 52.18], [21.561, 52.181], [21.56, 52.18]]] };
+    req.flush({ parcel: { id: '141201_1.0001.6509', commune: 'Pionki', region: null, county: null, number: '6509', area_ha: 0.27, is_agricultural: true, geometry_geojson: geometry } });
+    await settle();
+    expect(el.querySelector<HTMLInputElement>('#parcel-id')!.value).toBe('141201_1.0001.6509');
+    expect(el.textContent).toContain('Znaleziono działkę 141201_1.0001.6509');
+    expect(picker.parcel()?.geometry_geojson).toEqual(geometry);
+
+    // edycja numeru zdejmuje obrys z mapy
+    const field = el.querySelector<HTMLInputElement>('#parcel-id')!;
+    field.value = '141201_1.0001.1';
+    field.dispatchEvent(new Event('input'));
+    await settle();
+    expect(picker.parcel()).toBeNull();
   });
 
   it('looks up the parcel and warns when it is not agricultural', async () => {

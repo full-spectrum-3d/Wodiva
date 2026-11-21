@@ -3,6 +3,7 @@ import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, i
 import type { Geometry, Point } from 'geojson';
 import type * as Leaflet from 'leaflet';
 
+import { BDOT_WMS, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../../core/map/leaflet';
 import { Report } from '../../../core/report.model';
 import { MapFocus } from './map-focus';
 import { MapObject, mapObjects } from './map-objects';
@@ -10,18 +11,13 @@ import { zoneAround } from './zone';
 
 /** Kolory i wzory z specyfikacji mapy — każdy obiekt ma też inny kształt lub wzór linii. */
 const STYLE = {
-  parcel: '#FFD400',
-  parcelOutline: '#1B1F1D',
   depression: '#1E88E5',
   flow: '#00ACC1',
   water: '#0D47A1',
   zone: '#6B6F68',
 } as const;
 
-const GUGIK = 'Ortofotomapa, NMT, EGiB, BDOT10k: © GUGiK';
 const POPUP = { minWidth: 220, maxWidth: 300 };
-const BDOT_WMS = 'https://mapy.geoportal.gov.pl/wss/service/pub/guest/kompozycja_BDOT10k_WMS/MapServer/WMSServer';
-const EGIB_WMS = 'https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow';
 const LEGEND_KINDS: Record<MapObject['kind'], string> = {
   zaglebienie: 'Zagłębienie terenu',
   splyw: 'Linia spływu',
@@ -97,8 +93,7 @@ export class ParcelMap {
   }
 
   private async init(): Promise<void> {
-    const mod = await import('leaflet');
-    const L = ((mod as unknown as { default?: typeof Leaflet }).default ?? mod) as typeof Leaflet;
+    const L = await loadLeaflet();
     const report = this.report();
 
     // shortcut: na telefonie przesuwanie jednym palcem wyłączone (przewija stronę), działa szczypanie i pełny ekran;
@@ -113,27 +108,18 @@ export class ParcelMap {
     map.createPane('parcel').style.zIndex = '650';
     L.control.scale({ imperial: false }).addTo(map);
 
-    const ortho = L.tileLayer.wms('https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution', {
-      layers: 'Raster',
-      format: 'image/jpeg',
-      maxZoom: 20,
-      attribution: GUGIK,
-    });
+    const ortho = orthoLayer(L);
     const bases: Record<string, Leaflet.Layer> = {
       'Ortofotomapa (GUGiK)': ortho,
       'Mapa ogólna (OpenStreetMap)': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap',
       }),
-      'Cieniowanie terenu (NMT GUGiK, wolniejsze)': L.tileLayer.wms(
-        'https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WMS/ShadedRelief',
-        { layers: 'Raster', format: 'image/png', maxZoom: 20, attribution: GUGIK },
-      ),
+      'Cieniowanie terenu (NMT GUGiK, wolniejsze)': gugikWms(L, NMT_WMS, 'Raster'),
     };
     ortho.addTo(map);
 
-    const wms = (url: string, layers: string, minZoom?: number) =>
-      L.tileLayer.wms(url, { layers, format: 'image/png', transparent: true, maxZoom: 20, minZoom, attribution: GUGIK });
+    const wms = (url: string, layers: string, minZoom?: number) => gugikWms(L, url, layers, minZoom);
 
     const overlays: Record<string, Leaflet.Layer> = {};
     const group = (name: string, on = true) => {
@@ -164,8 +150,8 @@ export class ParcelMap {
       ndviLayer = L.imageOverlay(ndvi.url, ndvi.bounds, { opacity: ndvi.opacity, className: 'map-ndvi' });
       overlays[`Stan roślin NDVI${ndvi.date ? ` (${ndvi.date})` : ''}`] = ndviLayer;
     }
-    overlays['Działki sąsiednie (EGiB, od przybliżenia 15)'] = wms(EGIB_WMS, 'dzialki,numery_dzialek', 15);
-    overlays['Użytki i klasy gleb (EGiB)'] = wms(EGIB_WMS, 'uzytki,kontury', 15);
+    overlays[`Działki sąsiednie (EGiB, od przybliżenia ${EGIB_MIN_ZOOM})`] = wms(EGIB_WMS, 'dzialki,numery_dzialek', EGIB_MIN_ZOOM);
+    overlays[`Użytki i klasy gleb (EGiB, od przybliżenia ${EGIB_MIN_ZOOM})`] = wms(EGIB_WMS, 'uzytki,kontury', EGIB_MIN_ZOOM);
     overlays['Rowy, rzeki, kanały (BDOT10k)'] = wms(BDOT_WMS, 'row,rz,rzOk,kan,kanOkr');
     overlays['Wody i mokradła (BDOT10k)'] = wms(BDOT_WMS, 'WPow,Mo,Szu');
     overlays['Lasy i zadrzewienia (BDOT10k)'] = wms(BDOT_WMS, 'TLes,RKr');
@@ -177,8 +163,7 @@ export class ParcelMap {
     // Granica działki: ciemna obwódka + żółta linia, zawsze na wierzchu.
     const geometry = report.parcel.geometry_geojson;
     if (geometry) {
-      L.geoJSON(geometry, { pane: 'parcel', style: { color: STYLE.parcelOutline, weight: 7, fill: false } }).addTo(map);
-      const parcel = L.geoJSON(geometry, { pane: 'parcel', style: { color: STYLE.parcel, weight: 3, fillOpacity: 0 } }).addTo(map);
+      const parcel = parcelOutline(L, geometry, 'parcel').addTo(map);
       parcel.bindPopup(this.popup(`Działka ${report.parcel.id}`, [this.parcelLine(report)]), POPUP);
       this.parcelBounds = parcel.getBounds();
       const ring = zoneAround(geometry, 500);
@@ -271,7 +256,7 @@ export class ParcelMap {
     const map = this.map;
     if (!entry || !map) return;
     if (!map.hasLayer(entry.group)) entry.group.addTo(map);
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = prefersReducedMotion();
     this.frame().nativeElement.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
     const layer = entry.layer as Leaflet.Layer & { getLatLng?: () => Leaflet.LatLng; getBounds?: () => Leaflet.LatLngBounds };
     if (layer.getLatLng) map.setView(layer.getLatLng(), Math.max(map.getZoom(), 17), { animate: !reduce });

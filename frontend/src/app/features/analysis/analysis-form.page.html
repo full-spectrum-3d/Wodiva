@@ -72,6 +72,8 @@
           {{ locating() ? 'Ustalam lokalizację…' : 'Użyj mojej lokalizacji' }}
         </button>
 
+        <app-parcel-picker class="mt-4 block" [parcel]="foundParcel()" (picked)="pickOnMap($event)" />
+
         <div id="parcel-status" aria-live="polite" class="mt-4">
           @if (lookup(); as l) {
             @if (l.state === 'loading') {
