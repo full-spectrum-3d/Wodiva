@@ -35,8 +35,8 @@
   --color-on-notice: #1b1f1d;
 
   /* Nagłówek raportu: jednolite tło (ochra pola) + ciemne szkło pod tekstem i kaflami */
-  --color-hero: #b8862f;
-  --color-glass: rgb(14 18 10 / 0.62);
+  --color-hero: #eae6db;
+  --color-glass: rgb(14 18 10 / 0.66);
   --color-glass-strong: rgb(14 17 10 / 0.8);
   --color-on-glass: #ffffff;
 
@@ -660,9 +660,9 @@
     box-shadow: inset 0 -4px 0 var(--color-notice);
   }
 
-  /* Fokus na ciemnym szkle: żółty obrys (5.4:1), zielony zlewałby się z tłem */
+  /* Fokus: obrys leży na kremowym tle nagłówka, więc ciemny (#1b1f1d, ok. 14:1); żółty zlał by się z kremem */
   .report-tab:focus-visible {
-    outline: 3px solid var(--color-notice);
+    outline: 3px solid var(--color-on-notice);
     outline-offset: 2px;
   }
 
@@ -705,11 +705,6 @@
     .map-frame {
       height: 28rem;
     }
-  }
-
-  /* Obrys fokusu wewnątrz ramki — overflow:hidden ucinałby zewnętrzny */
-  .map-canvas:focus-visible {
-    outline-offset: -3px;
   }
 
   .map-exit {
@@ -1089,4 +1084,20 @@
   .crop-tile:has(:checked) .crop-check {
     visibility: visible;
   }
+}
+
+/* Fokus mapy (WCAG 2.4.7). Poza @layer, bo leaflet.css nie ma warstwy i wygrywa z regułami w warstwach.
+   Zewnętrzny obrys ucina overflow:hidden ramki, a wewnętrzny zasłaniają panele Leafleta (z-index 400+),
+   więc ramkę fokusu rysuje pseudo-element nad panelami. */
+.map-canvas:focus-visible {
+  outline: none;
+}
+
+.map-canvas:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1001;
+  border: 3px solid var(--color-focus);
+  pointer-events: none;
 }
