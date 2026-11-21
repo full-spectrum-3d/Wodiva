@@ -2,11 +2,11 @@
   "name": "Wodiva",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
     "ghcr.io/devcontainers/features/git-lfs:1": {}
   },
   "postCreateCommand": "pip install -e 'backend[dev,era5]' && python -c \"import duckdb; duckdb.connect().execute('INSTALL httpfs')\"",
-  "forwardPorts": [8000, 5173],
+  "forwardPorts": [8000, 4200],
   "customizations": {
     "vscode": {
       "extensions": ["ms-python.python", "charliermarsh.ruff"]
