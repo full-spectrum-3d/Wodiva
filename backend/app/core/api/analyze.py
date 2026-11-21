@@ -117,7 +117,9 @@ async def run_analysis(req: AnalyzeRequest) -> Report:
 @router.post("/analyze", response_model=Report)
 async def analyze(req: AnalyzeRequest, mock: bool = Query(False)) -> Report:
     if mock or get_settings().analyze_mock:
-        return mock_report(req)
+        report = mock_report(req)
+        builder = _optional("app.report.builder")
+        return builder.persist(report) if builder is not None else report
     try:
         return await run_analysis(req)
     except InputError as exc:

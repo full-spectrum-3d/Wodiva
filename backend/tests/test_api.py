@@ -1,8 +1,9 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core import validation
 from app.core.main import create_app
 from app.core.security import RateLimitMiddleware
 
@@ -31,12 +32,40 @@ def test_mock_report_full_order(client):
     assert rep["water"]["soil_water"]["in_season"] is True
     assert rep["irrigation"]["status"] in {"zalecane", "niezalecane", "monitoruj"}
     assert len(rep["water"]["scenarios"]) == 3
+    assert rep["summary"]["headline"] and rep["summary"]["status"]
+    assert client.get(f"/api/report/{rep['id']}").json()["mock"] is True
+    assert client.get(f"/api/report/{rep['id']}/summary").json()["headline"] == rep["summary"]["headline"]
+    assert client.get(f"/api/report/{rep['id']}.pdf").content[:4] == b"%PDF"
+    assert client.get(f"/api/report/{rep['id']}/map.png").status_code == 200
+    answer = client.post("/api/assistant", json={"report_id": rep["id"], "question": "Co zrobić najpierw?"})
+    assert answer.status_code == 200
+
+
+def test_evidence_item(client):
+    item = client.get("/api/evidence/e01").json()
+    assert item["id"] == "E01" and "FAO" in item["source"] and "ET0" in item["purpose"]
+    assert client.get("/api/evidence/E99").status_code == 404
+
+
+def test_today_follows_warsaw_not_server_utc(monkeypatch):
+    class LateUtcEvening(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 7, 1, 22, 30, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(validation, "datetime", LateUtcEvening)
+    assert validation.today_in_poland() == date(2026, 7, 2)
+    assert validation.validate_analysis_date(date(2026, 7, 2)) == date(2026, 7, 2)
 
 
 @pytest.mark.parametrize(
     "payload",
     [
-        {"parcel_id": "141201_1.0001.6509", "date": (date.today() + timedelta(days=1)).isoformat(), "crop": "ziemniak"},
+        {
+            "parcel_id": "141201_1.0001.6509",
+            "date": str(validation.today_in_poland() + timedelta(days=1)),
+            "crop": "ziemniak",
+        },
         {"parcel_id": "141201_1.0001.6509", "date": "2010-05-01", "crop": "ziemniak"},
         {"parcel_id": "141201_1.0001.6509", "date": "2024-05-01", "crop": "banan"},
         {"parcel_id": "zly identyfikator!!", "date": "2024-05-01", "crop": "ziemniak"},
