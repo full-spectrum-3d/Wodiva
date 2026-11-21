@@ -1,7 +1,7 @@
 import { afterNextRender, Component, DestroyRef, effect, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import type * as Leaflet from 'leaflet';
 
-import { EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, orthoLayer, parcelOutline, prefersReducedMotion } from '../../core/map/leaflet';
+import { basicLayer, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../core/map/leaflet';
 import { Parcel } from '../../core/wodiva-api.model';
 
 /** Środek i przybliżenie startowe: cała Polska. */
@@ -9,6 +9,26 @@ const POLAND: Leaflet.LatLngTuple = [52.07, 19.48];
 const POLAND_ZOOM = 6;
 /** Od tego przybliżenia widać granice i numery działek EGiB — wcześniej klik trafia „w ciemno”. */
 export const PARCELS_MIN_ZOOM = EGIB_MIN_ZOOM;
+/** Widok wokół użytkownika: ok. 100 km w każdą stronę od jego lokalizacji. */
+export const AROUND_USER_M = 100_000;
+/** Wybrany rodzaj mapy — wygoda jednej przeglądarki, nie stan do synchronizacji. */
+const BASE_KEY = 'wodiva.map.base';
+
+const BASES = {
+  'Mapa podstawowa': basicLayer,
+  'Zdjęcia lotnicze (ortofotomapa GUGiK)': orthoLayer,
+  'Ukształtowanie terenu (NMT GUGiK)': (L: typeof Leaflet) => gugikWms(L, NMT_WMS, 'Raster'),
+} as const;
+type BaseName = keyof typeof BASES;
+
+function savedBase(): BaseName {
+  try {
+    const name = localStorage.getItem(BASE_KEY);
+    return name && name in BASES ? (name as BaseName) : 'Mapa podstawowa';
+  } catch {
+    return 'Mapa podstawowa';
+  }
+}
 
 export interface PickedPoint {
   lat: number;
@@ -68,10 +88,36 @@ export class ParcelPicker {
     this.L = L;
     const map = L.map(this.canvas().nativeElement, { center: POLAND, zoom: POLAND_ZOOM });
     this.map = map;
-    orthoLayer(L).addTo(map);
-    gugikWms(L, EGIB_WMS, 'dzialki,numery_dzialek', PARCELS_MIN_ZOOM).addTo(map);
+    // Rodzaj mapy: domyślnie podstawowa; zmiana w ustawieniach mapy (przycisk w prawym górnym rogu).
+    const bases: Record<BaseName, Leaflet.Layer> = {
+      'Mapa podstawowa': BASES['Mapa podstawowa'](L),
+      'Zdjęcia lotnicze (ortofotomapa GUGiK)': BASES['Zdjęcia lotnicze (ortofotomapa GUGiK)'](L),
+      'Ukształtowanie terenu (NMT GUGiK)': BASES['Ukształtowanie terenu (NMT GUGiK)'](L),
+    };
+    bases[savedBase()].addTo(map);
+    const parcels = gugikWms(L, EGIB_WMS, 'dzialki,numery_dzialek', PARCELS_MIN_ZOOM).addTo(map);
+    const settings = L.control
+      .layers(bases, { [`Granice i numery działek (od przybliżenia ${PARCELS_MIN_ZOOM})`]: parcels }, { collapsed: true })
+      .addTo(map);
+    const toggle = settings.getContainer()?.querySelector<HTMLElement>('.leaflet-control-layers-toggle');
+    toggle?.setAttribute('aria-label', 'Ustawienia mapy: rodzaj mapy i granice działek');
+    toggle?.setAttribute('title', 'Ustawienia mapy');
+    map.on('baselayerchange', (e: Leaflet.LayersControlEvent) => {
+      try {
+        localStorage.setItem(BASE_KEY, e.name);
+      } catch {
+        // bez dostępu do pamięci przeglądarki wybór obowiązuje tylko do odświeżenia
+      }
+    });
     L.control.scale({ imperial: false }).addTo(map);
+    this.centerOnUser(L, map);
     map.on('zoomend', () => this.zoom.set(map.getZoom()));
+    // Mapa bywa ukrywana (telefon: kroki 2–3) i zmienia rozmiar (pełna wysokość na komputerze) — Leaflet musi to wiedzieć.
+    if (typeof ResizeObserver !== 'undefined') {
+      const resize = new ResizeObserver(() => map.invalidateSize());
+      resize.observe(this.canvas().nativeElement);
+      map.on('unload', () => resize.disconnect());
+    }
     map.on('click', (e: Leaflet.LeafletMouseEvent) => {
       this.pending?.remove();
       // tymczasowy znacznik w miejscu kliknięcia, dopóki backend nie zwróci granicy działki
@@ -79,6 +125,21 @@ export class ParcelPicker {
       this.picked.emit({ lat: e.latlng.lat, lon: e.latlng.lng });
     });
     this.ready.set(true);
+  }
+
+  /**
+   * Start: okolica użytkownika (±100 km). Bez zgody na lokalizację albo bez niej w przeglądarce zostaje cała Polska.
+   * Nie przesuwamy mapy, jeśli w międzyczasie wybrano już działkę.
+   */
+  private centerOnUser(L: typeof Leaflet, map: Leaflet.Map): void {
+    navigator.geolocation?.getCurrentPosition(
+      ({ coords }) => {
+        if (this.outline) return;
+        map.fitBounds(L.latLng(coords.latitude, coords.longitude).toBounds(2 * AROUND_USER_M), { animate: !prefersReducedMotion() });
+      },
+      () => undefined,
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 10 * 60_000 },
+    );
   }
 
   private showParcel(parcel: Parcel | null): void {
