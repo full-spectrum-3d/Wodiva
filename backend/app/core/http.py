@@ -73,7 +73,10 @@ async def fetch(
         for attempt in range(retries + 1):
             try:
                 response = await get_client().get(url, params=params, timeout=limit)
-                if response.status_code >= 500 or response.status_code == 429:
+                if response.status_code == 429:
+                    # usługa każe zwolnić — ponowienie tylko przedłuża blokadę
+                    raise SourceError(source, "HTTP 429")
+                if response.status_code >= 500:
                     last_error = f"HTTP {response.status_code}"
                 else:
                     response.raise_for_status()

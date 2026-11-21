@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 
 import httpx
 import pytest
@@ -6,6 +6,7 @@ import respx
 
 from app.core.dates import assert_not_after
 from app.core.http import set_client
+from app.core.validation import today_in_poland
 from app.water import meteo
 from app.water.sources import imgw, openmeteo
 
@@ -45,7 +46,7 @@ async def test_historical_analysis_has_no_future_data(cube_path, analysis_day):
 
 @respx.mock
 async def test_current_analysis_uses_openmeteo_for_gap_and_forecast(cube_path):
-    today = datetime.now(UTC).date()
+    today = today_in_poland()
     start = today - timedelta(days=openmeteo.PAST_DAYS)
     respx.get(openmeteo.FORECAST_URL).mock(
         return_value=httpx.Response(200, json=_hourly(start, openmeteo.PAST_DAYS + 8))
@@ -57,6 +58,20 @@ async def test_current_analysis_uses_openmeteo_for_gap_and_forecast(cube_path):
     assert min(result.forecast.index) > today
     sources = {d.source for d in result.series.days}
     assert "openmeteo" in sources
+
+
+@respx.mock
+async def test_yesterday_gets_no_forecast_from_observed_days(cube_path):
+    today = today_in_poland()
+    yesterday = today - timedelta(days=1)
+    start = today - timedelta(days=openmeteo.PAST_DAYS)
+    respx.get(openmeteo.FORECAST_URL).mock(
+        return_value=httpx.Response(200, json=_hourly(start, openmeteo.PAST_DAYS + 8))
+    )
+    result = await meteo.load(51.2, 21.2, yesterday, 10)
+    assert_not_after(result.series.days, yesterday)
+    assert result.forecast.empty
+    assert any(lim.code == "no_forecast" for lim in result.limitations)
 
 
 @respx.mock

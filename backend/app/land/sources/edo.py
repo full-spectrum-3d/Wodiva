@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from datetime import date
+from datetime import date, timedelta
 
 import matplotlib.image as mpimg
 import numpy as np
@@ -27,6 +27,14 @@ def dekad_start(day: date) -> date:
     return day.replace(day=1 if day.day < 11 else 11 if day.day < 21 else 21)
 
 
+def last_complete_dekad(day: date) -> date:
+    # CDI dekady liczony jest z danych do jej końca: bieżąca dekada wolna tylko w jej ostatnim dniu
+    start = dekad_start(day)
+    if dekad_start(day + timedelta(days=1)) != start:
+        return start
+    return dekad_start(start - timedelta(days=1))
+
+
 def classify(rgb: tuple[int, int, int]) -> tuple[str, str]:
     best = min(CLASSES, key=lambda c: sum((a - b) ** 2 for a, b in zip(c, rgb, strict=True)))
     if sum((a - b) ** 2 for a, b in zip(best, rgb, strict=True)) > 1200:
@@ -35,9 +43,9 @@ def classify(rgb: tuple[int, int, int]) -> tuple[str, str]:
 
 
 async def cdi(lon: float, lat: float, day: date) -> DroughtContext:
-    if day < FIRST_DATE:
+    when = last_complete_dekad(day)
+    if when < FIRST_DATE:
         return DroughtContext(status=DataStatus.missing)
-    when = dekad_start(day)
     key = cache.make_key("edo", round(lon, 2), round(lat, 2), str(when))
     cached = cache.get(key)
     if cached is None:
@@ -61,7 +69,7 @@ async def cdi(lon: float, lat: float, day: date) -> DroughtContext:
         if not response.headers.get("content-type", "").startswith("image/png"):
             return DroughtContext(date=when, status=DataStatus.missing)
         cached = response.content
-        cache.set(key, cached, 365 * DAY if when < date.today().replace(day=1) else DAY / 2)
+        cache.set(key, cached, 365 * DAY if when < date.today() - timedelta(days=30) else DAY / 2)
     image = mpimg.imread(io.BytesIO(cached), format="png")
     center = image[4:7, 4:7].reshape(-1, image.shape[-1])
     opaque = center[center[:, 3] > 0.5] if image.shape[-1] == 4 else center

@@ -18,6 +18,7 @@ class LandSettings(BaseSettings):
     public_url: str = "http://localhost:8000"
     assistant_model: str = "claude-opus-5-5"
     assistant_effort: str = "medium"
+    assistant_daily_limit: int = 300
     anthropic_api_key: str = Field(
         default="", validation_alias=AliasChoices("ANTHROPIC_API_KEY", "WODIVA_ANTHROPIC_API_KEY")
     )

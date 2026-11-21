@@ -103,6 +103,12 @@ async def test_pigpib_groundwater_respects_analysis_date():
     assert now["wells"][0]["water_table_depth_m"] == 5.3
     assert now["body"]["quantitative_status"] == "słaby" and now["major_aquifer"]["number"] == 143
     assert pigpib.is_quantity_poor(now)
+    old = await pigpib.groundwater(geom, date(2017, 7, 15))
+    assert "quantitative_status" not in old["body"] and old["body"]["assessment_after_analysis_date"] == 2025
+    assert not pigpib.is_quantity_poor(old)
+    mid = await pigpib.groundwater(geom, date(2023, 7, 15))
+    assert mid["body"]["quantitative_status"] == "słaby" and "risk" not in mid["body"]
+    assert mid["body"]["assessment_after_analysis_date"] == 2025
 
 
 def test_groundwater_drives_rule_and_irrigation_note(parcel, water, soil, irrigation, land):

@@ -1,7 +1,7 @@
 import { afterNextRender, Component, DestroyRef, effect, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import type * as Leaflet from 'leaflet';
 
-import { basicLayer, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../core/map/leaflet';
+import { addPolishZoom, basicLayer, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../core/map/leaflet';
 import { Parcel } from '../../core/wodiva-api.model';
 
 /** Środek i przybliżenie startowe: cała Polska. */
@@ -51,7 +51,7 @@ export interface PickedPoint {
     <div class="picker-frame mt-2">
       <div #canvas class="map-canvas" role="region" aria-label="Mapa do wyboru działki" aria-describedby="picker-help"></div>
       @if (failed()) {
-        <p class="picker-failed">Mapa się nie wczytała. Wpisz numer działki w pole powyżej.</p>
+        <p class="picker-failed" role="status">Mapa się nie wczytała. Wpisz numer działki w pole powyżej.</p>
       }
     </div>
   `,
@@ -86,7 +86,8 @@ export class ParcelPicker {
   private async init(): Promise<void> {
     const L = await loadLeaflet();
     this.L = L;
-    const map = L.map(this.canvas().nativeElement, { center: POLAND, zoom: POLAND_ZOOM });
+    const map = L.map(this.canvas().nativeElement, { center: POLAND, zoom: POLAND_ZOOM, zoomControl: false });
+    addPolishZoom(L, map);
     this.map = map;
     // Rodzaj mapy: domyślnie podstawowa; zmiana w ustawieniach mapy (przycisk w prawym górnym rogu).
     const bases: Record<BaseName, Leaflet.Layer> = {

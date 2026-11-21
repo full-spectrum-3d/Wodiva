@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime
 
 from app.core.cache import get_cache
@@ -6,6 +7,11 @@ from app.core.schemas import DataSource, SourceStatus
 from app.water.geo import lonlat_to_2180
 
 URL = "https://uldk.gugik.gov.pl/"
+# Po blokadzie (429 albo przekierowanie na inny host) nie pytamy ULDK przez 10 min: kolejne zapytania
+# przedłużają blokadę, a rolnik od razu dostaje zapas (eksport EGiB) zamiast czekać na ponowienia.
+BLOCK_S = 600
+_blocked_until = 0.0
+URL_HOST = "uldk.gugik.gov.pl"
 FIELDS = ["id", "teryt", "voivodeship", "county", "commune", "region", "parcel", "geom_wkt"]
 
 
@@ -45,14 +51,22 @@ def parse_response(text: str) -> list[dict]:
 
 
 async def _query(request: str, key: str, extra: dict) -> list[dict]:
+    global _blocked_until
+
     async def run():
+        if time.monotonic() < _blocked_until:
+            raise SourceError("uldk", "usługa blokuje zapytania, ponowimy za kilka minut")
         params = {"request": request, "result": ",".join(FIELDS), "srid": "2180", **extra}
-        response = await fetch("uldk", URL, params=params)
+        response = await fetch("uldk", URL, params=params, retries=0)  # rolnik czeka; zapas: eksport EGiB
+        if response.url.host != URL_HOST:
+            raise SourceError("uldk", f"przekierowanie na {response.url.host}")
         return parse_response(response.text)
 
     try:
         return await get_cache().get_or_fetch("uldk", (request, key), run)
     except SourceError as exc:
+        if "429" in str(exc) or "przekierowanie" in str(exc):
+            _blocked_until = time.monotonic() + BLOCK_S
         raise ParcelNotFound(f"ULDK niedostępne ({exc})") from exc
 
 

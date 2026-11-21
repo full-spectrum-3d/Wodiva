@@ -4,7 +4,7 @@
 
 <!-- Strona główna: lewa część — kreator raportu (3 kroki), prawa — mapa wyboru działki -->
 <div class="home-layout">
-  <section class="home-wizard" aria-labelledby="home-heading">
+  <section class="home-wizard" [attr.aria-labelledby]="analysis().submitting() ? null : 'home-heading'" [attr.aria-label]="analysis().submitting() ? 'Analiza działki' : null">
     @if (analysis().submitting()) {
       <app-analysis-progress [parcelId]="analysis.parcelId().value().trim()" (cancel)="cancelAnalysis()" />
     } @else {
@@ -174,7 +174,8 @@
                 <div class="mt-4 grid gap-3 md:grid-cols-2">
                   @for (crop of crops.value(); track crop.code) {
                     <label class="crop-tile">
-                      <input type="radio" class="sr-only" [value]="crop.code" [formField]="analysis.crop" />
+                      <input type="radio" class="sr-only" [value]="crop.code" [formField]="analysis.crop"
+                        [attr.aria-invalid]="analysis.crop().touched() && analysis.crop().invalid()" aria-describedby="crop-error" />
                       <span class="font-semibold">{{ crop.name }}</span>
                       <span class="text-sm text-text-muted">Okres krytyczny: {{ crop.critical_label }} ({{ crop.critical_period }})</span>
                       <svg aria-hidden="true" viewBox="0 0 24 24" class="crop-check" fill="none" stroke="currentColor" stroke-width="2.5">

@@ -30,12 +30,18 @@ export function basicLayer(L: typeof Leaflet): Leaflet.TileLayer {
   return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
 }
 
+/**
+ * WMS GUGiK: kafelki 512 px (4× mniej zapytań niż 256 px) i pobierane dopiero po zatrzymaniu mapy,
+ * nie w trakcie przesuwania i animacji zoomu — usługi GUGiK blokują zbyt częste zapytania.
+ */
+const WMS_LOAD = { tileSize: 512, updateWhenIdle: true, updateWhenZooming: false } as const;
+
 export function orthoLayer(L: typeof Leaflet): Leaflet.TileLayer.WMS {
-  return L.tileLayer.wms(ORTO_WMS, { layers: 'Raster', format: 'image/jpeg', maxZoom: 20, attribution: GUGIK_ATTRIBUTION });
+  return L.tileLayer.wms(ORTO_WMS, { layers: 'Raster', format: 'image/jpeg', maxZoom: 20, ...WMS_LOAD, attribution: GUGIK_ATTRIBUTION });
 }
 
 export function gugikWms(L: typeof Leaflet, url: string, layers: string, minZoom?: number): Leaflet.TileLayer.WMS {
-  return L.tileLayer.wms(url, { layers, format: 'image/png', transparent: true, maxZoom: 20, minZoom, attribution: GUGIK_ATTRIBUTION });
+  return L.tileLayer.wms(url, { layers, format: 'image/png', transparent: true, maxZoom: 20, minZoom, ...WMS_LOAD, attribution: GUGIK_ATTRIBUTION });
 }
 
 /** Obwódka + żółta granica jako jedna grupa (getBounds → przybliżenie do działki). */
@@ -45,4 +51,9 @@ export function parcelOutline(L: typeof Leaflet, geometry: Geometry, pane?: stri
     L.geoJSON(geometry, { ...opts, interactive: false, style: { color: PARCEL_OUTLINE, weight: 7, fill: false } }),
     L.geoJSON(geometry, { ...opts, style: { color: PARCEL_COLOR, weight: 3, fillColor: PARCEL_COLOR, fillOpacity: 0.12 } }),
   ]);
+}
+
+/** Przyciski przybliżania z polskimi etykietami (domyślne „Zoom in/out” są po angielsku). */
+export function addPolishZoom(L: typeof Leaflet, map: Leaflet.Map): void {
+  L.control.zoom({ zoomInTitle: 'Przybliż', zoomOutTitle: 'Oddal' }).addTo(map);
 }

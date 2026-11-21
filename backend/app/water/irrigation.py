@@ -40,7 +40,19 @@ def _project(sim: Simulation, crop: Crop, day: date, forecast: pd.DataFrame) -> 
     return days, np.array(out), etc_sum
 
 
+UNKNOWN_LAND_USE_NOTE = (
+    "Nie udało się potwierdzić w EGiB, że działka jest użytkiem rolnym – sprawdź to przed nawadnianiem."
+)
+
+
 def advise(sim: Simulation | None, crop: Crop, parcel: Parcel, day: date, forecast: pd.DataFrame) -> IrrigationAdvice:
+    advice = _advise(sim, crop, parcel, day, forecast)
+    if parcel.is_agricultural is None and advice.status != "nie dotyczy":
+        advice.reason = f"{advice.reason} {UNKNOWN_LAND_USE_NOTE}"
+    return advice
+
+
+def _advise(sim: Simulation | None, crop: Crop, parcel: Parcel, day: date, forecast: pd.DataFrame) -> IrrigationAdvice:
     if sim is None:
         return IrrigationAdvice(status="nie dotyczy", reason="Brak modelu wody w glebie.", legal_note=LEGAL_NOTE)
     if parcel.is_agricultural is False:

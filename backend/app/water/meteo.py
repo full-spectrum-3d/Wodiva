@@ -1,13 +1,14 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
 
 from app.core.http import SourceError
 from app.core.schemas import DataSource, Limitation, MeteoDay, MeteoSeries, SourceStatus, StationCheck
+from app.core.validation import today_in_poland
 from app.water.engine.et0 import et0_for_days
 from app.water.sources import era5, imgw, openmeteo
 
@@ -50,7 +51,8 @@ def with_et0(frame: pd.DataFrame, lat: float) -> pd.DataFrame:
 def fill_gaps(frame: pd.DataFrame, start: date, end: date) -> tuple[pd.DataFrame, int]:
     index = pd.Index([d.date() for d in pd.date_range(start, end, freq="D")], name="date")
     full = frame.reindex(index)
-    missing = int(full["tmax_c"].isna().sum())
+    # dzień z luką w dowolnej kolumnie (nie tylko tmax): NaN w opadzie czy promieniowaniu psuje cały bilans wody
+    missing = int(full[COLUMNS].isna().any(axis=1).sum())
     if missing:
         doy = pd.Series([d.timetuple().tm_yday for d in index], index=index)
         for col in COLUMNS:
@@ -72,7 +74,7 @@ def _to_days(frame: pd.DataFrame, source_col: pd.Series) -> list[MeteoDay]:
 
 async def load(lat: float, lon: float, analysis_date: date, years: int) -> MeteoResult:
     start = history_start(analysis_date, years)
-    today = datetime.now(UTC).date()
+    today = today_in_poland()  # ta sama strefa co walidacja daty, inaczej po północy prognoza wchodzi jako obserwacja
     sources: list[DataSource] = []
     limitations: list[Limitation] = []
     parts: list[pd.DataFrame] = []
@@ -89,7 +91,8 @@ async def load(lat: float, lon: float, analysis_date: date, years: int) -> Meteo
         sources.append(era5.data_source(None, None, SourceStatus.missing, "kostka ERA5 niedostępna na serwerze"))
 
     need_from = (era5_until + timedelta(days=1)) if era5_until else start
-    is_current = (today - analysis_date).days <= 2
+    # tylko dziś: dla wczoraj dni „prognozy” byłyby już obserwacjami po dacie analizy
+    is_current = analysis_date >= today
     forecast = pd.DataFrame(columns=COLUMNS)
     use_recent = is_current or (need_from <= analysis_date and (today - need_from).days <= openmeteo.PAST_DAYS)
 
@@ -134,6 +137,8 @@ async def load(lat: float, lon: float, analysis_date: date, years: int) -> Meteo
     merged = pd.concat(parts)
     merged = merged[~merged.index.duplicated(keep="first")].sort_index()
     merged = merged[(merged.index >= start) & (merged.index <= analysis_date)]
+    if merged.empty:
+        raise SourceError("meteo", "brak danych meteorologicznych do daty analizy")
     meteo_until = max(merged.index)
     full, missing = fill_gaps(merged[COLUMNS], min(merged.index), meteo_until)
     if meteo_until < analysis_date:
@@ -183,7 +188,7 @@ async def station_check(
     start = max(analysis_date - timedelta(days=365), min(model.index))
     obs, latest = await asyncio.gather(
         imgw.station_daily(station, start, analysis_date),
-        imgw.latest_observation(station) if (datetime.now(UTC).date() - analysis_date).days <= 1 else _none(),
+        imgw.latest_observation(station) if analysis_date >= today_in_poland() else _none(),
     )
     window = model[(model.index >= start) & (model.index <= analysis_date)]
     check = imgw.compare(window, obs, station, distance) if len(obs) else None

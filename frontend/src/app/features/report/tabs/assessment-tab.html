@@ -4,6 +4,7 @@
   @if (r.water; as w) {
     @for (note of notes(); track $index) {
       <p class="mt-4 border-l-4 bg-surface-sunken p-3" [class]="note.severity === 'krytyczne' ? levelClass.high.edge : levelClass.watch.edge">
+        <span class="font-semibold">{{ note.severity === 'krytyczne' ? 'Krytyczne' : 'Ostrzeżenie' }}:</span>
         {{ note.message }}
       </p>
     }

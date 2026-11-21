@@ -73,6 +73,9 @@ async def prepare(parcel: Parcel, analysis_date: date, crop_code: str, soil_cate
     return WaterPrep(parcel, analysis_date, crop, met, soil_info, check, sources, limitations)
 
 
+MIN_RELIABLE_YEARS = 3
+
+
 def compute(prep: WaterPrep, slope_pct: float | None = None, phase_offset_days: int | None = None) -> WaterResult:
     frame = prep.meteo.frame
     day = min(prep.analysis_date, max(frame.index))
@@ -103,7 +106,8 @@ def compute(prep: WaterPrep, slope_pct: float | None = None, phase_offset_days: 
             Limitation(
                 code="history_short",
                 message=f"Historia meteo obejmuje {len(years)} lat ({years[0]}–{years[-1]}), mniej niż {years_cfg}.",
-                severity="ostrzeżenie",
+                # krótka historia = symulacja startuje z pełnej gleby, więc susza wychodzi zaniżona
+                severity="krytyczne" if len(years) < MIN_RELIABLE_YEARS else "ostrzeżenie",
                 section="ocena historyczna",
             )
         )

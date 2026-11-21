@@ -66,6 +66,10 @@ def _well(feature: dict, x: float, y: float, day: date) -> dict:
     return {k: v for k, v in item.items() if v not in (None, "", " ")}
 
 
+# rok oceny każdego pola JCWPd: dla wcześniejszych dat analizy pole jest informacją z przyszłości
+ASSESSMENT_YEAR = {"quantitative_status": 2022, "chemical_status": 2022, "overall_status": 2022, "risk": 2025}
+
+
 async def _wells(x: float, y: float, day: date) -> list[dict]:
     envelope = {
         "geometry": f"{x - WELL_RADIUS_M},{y - WELL_RADIUS_M},{x + WELL_RADIUS_M},{y + WELL_RADIUS_M}",
@@ -118,6 +122,11 @@ async def _aquifer(x: float, y: float) -> dict | None:
 async def groundwater(geom_2180: BaseGeometry, day: date) -> dict:
     x, y = geom_2180.centroid.x, geom_2180.centroid.y
     wells, body, aquifer = await asyncio.gather(_wells(x, y, day), _body(x, y), _aquifer(x, y))
+    later = {k for k, year in ASSESSMENT_YEAR.items() if body and k in body and day.year < year}
+    if later:
+        body = {k: v for k, v in body.items() if k not in later}
+        body["assessment_after_analysis_date"] = max(ASSESSMENT_YEAR[k] for k in later)
+        body.pop("status_year", None)
     return {
         "wells": wells,
         "body": body,

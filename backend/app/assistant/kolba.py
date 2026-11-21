@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from functools import lru_cache
 from typing import Literal
 
@@ -272,13 +273,32 @@ def _messages(history: list[Turn], question: str) -> list[dict]:
     return [{"role": t.role, "content": t.content} for t in turns] + [{"role": "user", "content": question}]
 
 
+@lru_cache(maxsize=1)
 def _client() -> anthropic.AsyncAnthropic:
     return anthropic.AsyncAnthropic(api_key=land_settings().anthropic_api_key, timeout=60.0, max_retries=1)
+
+
+# shortcut: licznik w pamięci jednego procesu, zeruje się po restarcie; przy kilku workerach przenieś do SQLite
+_usage: dict = {"day": None, "count": 0}
+
+
+def _within_daily_limit() -> bool:
+    today = date.today()
+    if _usage["day"] != today:
+        _usage.update(day=today, count=0)
+    if _usage["count"] >= land_settings().assistant_daily_limit:
+        return False
+    _usage["count"] += 1
+    return True
 
 
 async def answer(report: Report, question: str, history: list[Turn] | None = None) -> AssistantAnswer:
     if not land_settings().anthropic_api_key:
         return offline_answer(report, question)
+    if not _within_daily_limit():
+        fallback = offline_answer(report, question)
+        fallback.mode = "bez AI (dzienny limit)"
+        return fallback
     system = [
         {"type": "text", "text": PERSONA},
         {"type": "text", "text": "Rejestr źródeł:\n" + evidence_text(), "cache_control": {"type": "ephemeral"}},

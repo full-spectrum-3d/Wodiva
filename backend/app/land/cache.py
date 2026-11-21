@@ -13,10 +13,12 @@ DAY = 86400.0
 class LandCache:
     def __init__(self):
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(var_dir() / "land_cache.sqlite", check_same_thread=False)
+        self._conn = sqlite3.connect(var_dir() / "land_cache.sqlite", check_same_thread=False, timeout=30)
+        self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value BLOB, kind TEXT, expires REAL)"
         )
+        self._conn.execute("CREATE INDEX IF NOT EXISTS cache_expires ON cache(expires)")
         self._conn.commit()
 
     @staticmethod
@@ -30,6 +32,20 @@ class LandCache:
         if row is None or (row[2] is not None and row[2] < time.time()):
             return None
         return json.loads(row[0]) if row[1] == "json" else row[0]
+
+    def purge_expired(self, batch: int = 5000) -> int:
+        # partiami, z lockiem zwalnianym między nimi: get/set z pętli zdarzeń nie czekają na cały purge
+        total = 0
+        while True:
+            with self._lock:
+                n = self._conn.execute(
+                    "DELETE FROM cache WHERE rowid IN (SELECT rowid FROM cache WHERE expires < ? LIMIT ?)",
+                    (time.time(), batch),
+                ).rowcount
+                self._conn.commit()
+            total += n
+            if n < batch:
+                return total
 
     def set(self, key: str, value: Any, ttl_s: float | None) -> None:
         if isinstance(value, bytes | bytearray):

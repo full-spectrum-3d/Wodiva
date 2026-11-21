@@ -707,6 +707,19 @@
     }
   }
 
+  /* Obrys fokusu wewnątrz ramki — overflow:hidden ucinałby zewnętrzny */
+  .map-canvas:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .map-exit {
+    position: absolute;
+    z-index: 1000;
+    inset-block-start: var(--space-2);
+    inset-inline-start: 50%;
+    translate: -50% 0;
+  }
+
   .map-frame:fullscreen {
     height: 100vh;
     border-radius: 0;
@@ -904,6 +917,7 @@
     height: 30px;
     border: 2px solid #fff;
     border-radius: 50%;
+    /* pinezka leży na mapie, nie na tle strony: ciemna zieleń w obu motywach, biały numer ma 5,1:1 */
     background: #2e7d32;
     color: #fff;
     font: 700 14px/1 var(--font-display);
@@ -911,7 +925,7 @@
   }
 
   .map-well {
-    background: #6a1b9a;
+    background: light-dark(#6a1b9a, #ce93d8);
     clip-path: polygon(50% 0, 100% 100%, 0 100%);
   }
 
@@ -971,7 +985,9 @@
   }
 
   /* Legenda: każdy obiekt ma inny kształt lub wzór linii (czytelna bez rozróżniania kolorów) */
+  /* Symbole legendy ≥ 3:1 do --color-surface w obu motywach (WCAG 1.4.11); na mapie obowiązują kolory ze specyfikacji */
   .lg {
+    --lg-water: light-dark(#0d47a1, #64b5f6);
     flex: none;
     width: 1.75rem;
     height: 1rem;
@@ -983,17 +999,17 @@
   }
 
   .lg-zone {
-    border-top: 3px dotted #6b6f68;
+    border-top: 3px dotted light-dark(#6b6f68, #9a9f98);
     height: 0;
   }
 
   .lg-zaglebienie {
     background: rgb(30 136 229 / 0.55);
-    border: 1px solid #0d47a1;
+    border: 1px solid var(--lg-water);
   }
 
   .lg-splyw {
-    border-top: 3px dashed #00acc1;
+    border-top: 3px dashed light-dark(#00838f, #26c6da);
     height: 0;
   }
 
@@ -1005,12 +1021,12 @@
 
   .lg-row,
   .lg-ciek {
-    border: 2px solid #0d47a1;
+    border: 2px solid var(--lg-water);
   }
 
   .lg-zbiornik {
-    border: 2px solid #0d47a1;
-    background: rgb(13 71 161 / 0.3);
+    border: 2px solid var(--lg-water);
+    background: color-mix(in srgb, var(--lg-water) 30%, transparent);
   }
 
   .lg-studnia {
