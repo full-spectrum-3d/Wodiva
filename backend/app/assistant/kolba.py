@@ -53,9 +53,15 @@ def evidence_text() -> str:
 REPORT_EXCLUDE = {
     "parcel": {"geometry_wkt_2180", "geometry_geojson"},
     "terrain": {"depressions", "flow_lines", "details"},
-    "hydro": {"details"},
+    "hydro": {
+        "details": True,
+        "watercourses": {"__all__": {"geometry"}},
+        "ditches": {"__all__": {"geometry"}},
+        "water_bodies": {"__all__": {"geometry"}},
+    },
     "satellite": {"details"},
     "water": {"meteo_last_90", "forecast"},
+    "recommendations": {"__all__": {"location"}},
 }
 
 
