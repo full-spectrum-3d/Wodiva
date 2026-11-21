@@ -101,7 +101,7 @@ def land(parcel) -> LandResult:
         ),
         radar=RadarState(interpretation="Brak zdjęcia radarowego.", status=DataStatus.missing),
         terrain=TerrainInfo(
-            dem_source="NMT GUGiK (Geoportal)",
+            dem_source="NMT GUGiK (usługa wysokości)",
             resolution_m=1.0,
             mean_slope_pct=3.4,
             max_slope_pct=6.1,
