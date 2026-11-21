@@ -712,6 +712,31 @@
     border-radius: 0;
   }
 
+  /* Mapa wyboru działki w formularzu */
+  .picker-frame {
+    position: relative;
+    height: 18rem;
+    overflow: hidden;
+    border: var(--border-control) solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+  }
+
+  @media (width >= 48rem) {
+    .picker-frame {
+      height: 22rem;
+    }
+  }
+
+  .picker-failed {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: var(--space-4);
+    background: var(--color-surface-sunken);
+    text-align: center;
+  }
+
   .map-canvas {
     width: 100%;
     height: 100%;

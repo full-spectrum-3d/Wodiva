@@ -1,12 +1,13 @@
 import { DecimalPipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
-import { afterNextRender, Component, DestroyRef, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { form, FormField, required, submit, validate } from '@angular/forms/signals';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { WodivaApi } from '../../core/wodiva-api';
 import { ApiError, Crop, Parcel, ParcelCandidate } from '../../core/wodiva-api.model';
 import { AnalysisProgress } from './analysis-progress';
+import { ParcelPicker, PickedPoint } from './parcel-picker';
 
 const ANALYSIS_YEARS = 10;
 
@@ -32,7 +33,7 @@ export function analysisDateRange(today = new Date()): { min: string; max: strin
 
 @Component({
   selector: 'app-analysis-form-page',
-  imports: [FormField, AnalysisProgress, DecimalPipe],
+  imports: [FormField, AnalysisProgress, DecimalPipe, ParcelPicker],
   templateUrl: './analysis-form.page.html',
 })
 export class AnalysisFormPage {
@@ -65,6 +66,11 @@ export class AnalysisFormPage {
   });
 
   protected readonly lookup = signal<ParcelLookup>({ state: 'idle' });
+  /** Działka obrysowana na mapie wyboru — ta sama, którą pokazuje karta „Znaleziono działkę”. */
+  protected readonly foundParcel = computed(() => {
+    const l = this.lookup();
+    return l.state === 'found' ? l.parcel : null;
+  });
   protected readonly locating = signal(false);
   protected readonly showSummary = signal(false);
   protected readonly serverError = signal<string | null>(null);
@@ -103,6 +109,11 @@ export class AnalysisFormPage {
   protected useCandidate(candidate: ParcelCandidate): void {
     this.model.update((m) => ({ ...m, parcelId: candidate.id }));
     this.findParcel();
+  }
+
+  /** Kliknięcie w mapę: działka w tym punkcie (ULDK) — numer trafia do pola, granica na mapę. */
+  protected pickOnMap(point: PickedPoint): void {
+    this.runLookup(this.api.findParcel({ lat: point.lat, lon: point.lon }));
   }
 
   protected useMyLocation(): void {
