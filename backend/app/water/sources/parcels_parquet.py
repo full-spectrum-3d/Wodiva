@@ -15,12 +15,25 @@ from app.core.schemas import DataSource, SourceStatus
 ID_CANDIDATES = ("idDzialki", "id_dzialki", "identyfikator", "identyfikatorDzialki", "ID_DZIALKI", "id")
 GEOM_CANDIDATES = ("geometry", "geom", "the_geom", "wkb_geometry", "msGeometry")
 _lock = threading.Lock()
+VOIVODESHIPS = {f"{n:02d}" for n in range(2, 33, 2)}
+NATIONAL_FILE = "/0_dzialki.parquet"
 
 
-def data_source(status: SourceStatus = SourceStatus.ok, note: str | None = None) -> DataSource:
+def region_url(parcel_id: str) -> str:
+    url = get_settings().parcels_parquet_url
+    code = parcel_id[:2]
+    if code in VOIVODESHIPS and url.endswith(NATIONAL_FILE):
+        return url.removesuffix(NATIONAL_FILE) + f"/{code}_dzialki.parquet"
+    return url
+
+
+def data_source(
+    status: SourceStatus = SourceStatus.ok, note: str | None = None, parcel_id: str = ""
+) -> DataSource:
+    url = region_url(parcel_id)
     return DataSource(
-        name="EGiB – eksport działek 0_dzialki.parquet (Geoportal opendata)",
-        url=get_settings().parcels_parquet_url,
+        name=f"EGiB – eksport działek {url.rsplit('/', 1)[-1]} (Geoportal opendata)",
+        url=url,
         license="Dane publiczne GUGiK, bezpłatne",
         retrieved_at=datetime.now(UTC),
         status=status,
@@ -28,10 +41,9 @@ def data_source(status: SourceStatus = SourceStatus.ok, note: str | None = None)
     )
 
 
-def _source() -> str:
-    settings = get_settings()
-    local = settings.parcels_parquet_local
-    return str(local) if local and local.exists() else settings.parcels_parquet_url
+def _source(parcel_id: str) -> str:
+    local = get_settings().parcels_parquet_local
+    return str(local) if local and local.is_file() else region_url(parcel_id)
 
 
 @lru_cache
@@ -56,7 +68,7 @@ def _schema(source: str) -> tuple[str, str, str]:
 def _lookup(parcel_id: str) -> dict | None:
     if not re.fullmatch(r"[0-9A-Za-z_./]{5,60}", parcel_id):
         return None
-    source = _source()
+    source = _source(parcel_id)
     with _lock:
         id_col, geom_col, _ = _schema(source)
         row = (

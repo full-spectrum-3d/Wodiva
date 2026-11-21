@@ -106,7 +106,7 @@ async def resolve_by_id(raw_id: str, with_land_use: bool = True) -> tuple[Parcel
         if row is None:
             raise ParcelLookupError(f"Nie znaleziono działki {parcel_id} (ULDK i EGiB parquet).") from exc
         parcel = build_parcel(row, "EGiB parquet")
-        sources.append(parcels_parquet.data_source())
+        sources.append(parcels_parquet.data_source(parcel_id=parcel_id))
     if with_land_use:
         parcel = await _with_land_use(parcel, sources)
     return parcel, sources
