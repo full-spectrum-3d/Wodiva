@@ -51,7 +51,7 @@ def test_report_serves_ndvi_overlay_and_kolba_skips_geometry(monkeypatch, parcel
         2180,
         geom,
     )
-    artifacts = service.collect.LandArtifacts(ndvi=png)
+    artifacts = service.collect.LandArtifacts(overlays={"ndvi": png, "ndmi": png})
     monkeypatch.setattr(service, "artifacts_for", lambda *a: artifacts)
     land.hydro.features = [
         {
@@ -69,3 +69,29 @@ def test_report_serves_ndvi_overlay_and_kolba_skips_geometry(monkeypatch, parcel
     assert client.get("/api/report/0123456789ab/ndvi.png").status_code == 404
     assert report.hydro.ditches[0]["geometry"]["type"] == "Point"
     assert '"coordinates"' not in kolba._report_context(report)
+
+
+def test_every_overlay_renders_and_slope_uses_classes():
+    geom = box(500000, 5800000, 500200, 5800200)
+    transform = rasterio.Affine(10.0, 0, 499980.0, 0, -10.0, 5800220.0)
+    values = np.linspace(-0.3, 15, 24 * 24, dtype=np.float32).reshape(24, 24)
+    for name in overlay.SPECS:
+        assert overlay.render(name, values, transform, 32634, geom)["png"][1:4] == b"PNG"
+    rgba = overlay._colorize("slope", np.array([[1.0, 3.0, 7.0, 20.0]]))
+    assert len({tuple(c) for c in rgba[0]}) == 4
+    assert overlay._colorize("ndwi", np.array([[-0.1, 0.2]]))[0, 0, 3] == 0.0
+    assert overlay.legend("slope")["classes"] == [2.0, 5.0, 10.0]
+
+
+def test_terrain_overlays_from_analysis(parcel):
+    from app.report import builder
+
+    geom = wkt.loads(parcel.geometry_wkt_2180)
+    minx, _, _, maxy = geom.bounds
+    transform = rasterio.Affine(3.0, 0, minx - 30, 0, -3.0, maxy + 30)
+    size = (int((geom.bounds[3] - geom.bounds[1]) / 3) + 21, int((geom.bounds[2] - minx) / 3) + 21)
+    terrain = type("T", (), {"slope_pct": np.full(size, 4.0, np.float32), "twi": np.full(size, 8.0, np.float32)})()
+    dem = type("D", (), {"transform": transform})()
+    artifacts = service.collect.LandArtifacts(terrain=terrain, dem=dem)
+    report = type("R", (), {"parcel": parcel})()
+    assert set(builder._terrain_overlays(report, artifacts)) == {"slope", "twi"}
