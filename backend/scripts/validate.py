@@ -70,7 +70,7 @@ def write_markdown(rows: list[dict], path: Path) -> None:
     ok = [r for r in rows if not r["error"]]
     times = [r["seconds"] for r in ok]
     lines = [
-        "# Walidacja – osoba A (meteo, gleba, model wody)",
+        "# Walidacja (meteo, gleba, model wody)",
         "",
         f"Data uruchomienia: {date.today().isoformat()}. Przebiegi: {len(rows)}, udane: {len(ok)}.",
         "",

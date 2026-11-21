@@ -1,37 +1,37 @@
-# Walidacja – osoba A (meteo, gleba, model wody)
+# Walidacja (meteo, gleba, model wody)
 
-Data uruchomienia: 2026-11-21. Przebiegi: 25, udane: 22.
+Data uruchomienia: 2026-11-21. Przebiegi: 25, udane: 25.
 
-Czas analizy: mediana 8.9 s, maks. 29.2 s, poniżej 30 s: 22/22.
+Czas analizy: mediana 7.9 s, maks. 19.8 s, poniżej 30 s: 25/25.
 
-Opad model vs IMGW (12 mies.): mediana różnicy 23%.
+Opad model vs IMGW (12 mies.): mediana różnicy 28%.
 
 | region | date | crop | parcel_id | soil_cat | kbw_period | kbw_threshold | kbw_drought | available_pct | stress_days | irrigation | imgw_precip_diff_pct | seconds | error |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| dolnośląskie | 2018-06-20 | pszenica_ozima | 022304_5.0032.1/112 | IV | -133.5 | -231.0 | False | 19.1 | 23 | zalecane | 38.1 | 15.8 |  |
-| kujawsko-pomorskie | 2019-06-10 | kukurydza_ziarno | 040708_2.0004.20 | III | -104.0 | None | None | 57.2 | 0 | monitoruj | 16.6 | 1.6 |  |
-| lubelskie | 2022-07-20 | rzepak_ozimy | 061704_2.0011.383/2 | III | -116.8 | None | None | 36.7 | 32 | niezalecane | 37.5 | 1.6 |  |
-| lubuskie | 2024-05-25 | ziemniak | 080204_2.0003.319/1 | III | -108.0 | None | None | 94.7 | 22 | niezalecane | 7.6 | 9.0 |  |
-| łódzkie | 2017-07-05 | burak_cukrowy |  |  |  |  |  |  |  |  |  | 59.9 | SourceError: meteo: brak danych meteorologicznych (ERA5 i Open-Meteo niedostępne) |
-| małopolskie | 2018-06-20 | pszenica_ozima | 121401_2.0011.109/6 | IV | -164.7 | -231.0 | False | 19.0 | 24 | zalecane | 27.7 | 10.6 |  |
-| mazowieckie | 2019-06-10 | kukurydza_ziarno | 143410_2.0002.326 | III | -67.2 | None | None | 60.8 | 0 | monitoruj | 51.7 | 9.7 |  |
-| opolskie | 2022-07-20 | rzepak_ozimy | 160703_5.0011.945 | IV | -118.0 | None | None | 20.3 | 61 | nie dotyczy | 32.7 | 28.6 |  |
-| podkarpackie | 2024-05-25 | ziemniak | 181004_2.0005.3254/1 | IV | -99.1 | None | None | 52.9 | 14 | zalecane | 51.5 | 8.5 |  |
-| podlaskie | 2017-07-05 | burak_cukrowy | 200212_5.0023.154/2 | II | -90.5 | -237.0 | False | 48.4 | 10 | monitoruj | -15.0 | 9.3 |  |
-| pomorskie | 2018-06-20 | pszenica_ozima | 221309_5.0012.5 | III | -185.8 | -204.0 | False | 5.3 | 32 | zalecane | 24.2 | 29.2 |  |
-| śląskie | 2019-06-10 | kukurydza_ziarno | 241307_2.0003.184/1 | IV | -29.7 | None | None | 79.0 | 0 | niezalecane | 22.3 | 8.9 |  |
-| świętokrzyskie | 2022-07-20 | rzepak_ozimy | 261208_5.0009.151 | III | -140.5 | None | None | 28.1 | 49 | niezalecane | 15.0 | 8.8 |  |
-| warmińsko-mazurskie | 2024-05-25 | ziemniak |  |  |  |  |  |  |  |  |  | 2.3 | ParcelLookupError: Nie znaleziono działki w tym miejscu: brak wyników |
-| wielkopolskie | 2017-07-05 | burak_cukrowy | 302109_5.0020.442/2 | III | -43.0 | -264.0 | False | 45.8 | 2 | monitoruj | 20.2 | 9.6 |  |
-| zachodniopomorskie | 2018-06-20 | pszenica_ozima | 321409_2.0008.73 | III | -191.3 | -204.0 | False | 5.5 | 34 | zalecane | 19.9 | 8.8 |  |
-| lubelskie-2 | 2019-06-10 | kukurydza_ziarno | 061401_1.0003.967/3 | III | -45.9 | None | None | 59.6 | 0 | nie dotyczy | 25.6 | 9.1 |  |
-| wielkopolskie-2 | 2022-07-20 | rzepak_ozimy | 300701_2.0025.22 | III | -161.4 | None | None | 11.7 | 71 | niezalecane | 31.3 | 9.0 |  |
-| mazowieckie-2 | 2024-05-25 | ziemniak | 140208_2.0021.20 | III | -116.8 | None | None | 27.6 | 26 | zalecane | 6.4 | 8.8 |  |
-| podlaskie-2 | 2017-07-05 | burak_cukrowy |  |  |  |  |  |  |  |  |  | 51.4 | SourceError: meteo: brak danych meteorologicznych (ERA5 i Open-Meteo niedostępne) |
-| dolnośląskie | 2026-11-21 | pszenica_ozima | 022304_5.0032.1/112 | IV | -55.9 | None | None | 100.0 | 0 | nie dotyczy | 10.2 | 28.0 |  |
-| kujawsko-pomorskie | 2026-11-21 | kukurydza_ziarno | 040708_2.0004.20 | III | -12.2 | -232.0 | False | 74.6 | 0 | nie dotyczy | 15.7 | 3.0 |  |
-| lubelskie | 2026-11-21 | rzepak_ozimy | 061704_2.0011.383/2 | III | -102.5 | -205.0 | False | 100.0 | 5 | nie dotyczy | 26.5 | 2.9 |  |
-| lubuskie | 2026-11-21 | ziemniak | 080204_2.0003.319/1 | III | -64.5 | None | None | 99.9 | 0 | nie dotyczy | 32.9 | 2.1 |  |
-| łódzkie | 2026-11-21 | burak_cukrowy | 100608_2.0012.18/13 | III | -68.8 | -182.0 | False | 72.1 | 0 | nie dotyczy | 13.6 | 2.5 |  |
+| dolnośląskie | 2018-06-20 | pszenica_ozima | 022304_5.0032.1/112 | IV | -148.4 | -231.0 | False | 16.8 | 25 | zalecane | 36.1 | 4.5 |  |
+| kujawsko-pomorskie | 2019-06-10 | kukurydza_ziarno | 040708_2.0004.20 | III | -80.5 | None | None | 69.1 | 0 | niezalecane | 35.6 | 1.5 |  |
+| lubelskie | 2022-07-20 | rzepak_ozimy | 061704_2.0011.383/2 | III | -93.5 | None | None | 41.5 | 28 | niezalecane | 40.6 | 1.6 |  |
+| lubuskie | 2024-05-25 | ziemniak | 080204_2.0003.319/1 | III | -107.7 | None | None | 31.7 | 26 | zalecane | 13.4 | 2.1 |  |
+| łódzkie | 2017-07-05 | burak_cukrowy | 100608_2.0012.18/13 | III | -52.5 | -264.0 | False | 45.3 | 1 | monitoruj | 8.5 | 0.8 |  |
+| małopolskie | 2018-06-20 | pszenica_ozima | 121401_2.0011.109/6 | IV | -139.2 | -231.0 | False | 23.7 | 23 | zalecane | 32.3 | 1.2 |  |
+| mazowieckie | 2019-06-10 | kukurydza_ziarno | 143410_2.0002.326 | III | -55.6 | None | None | 63.5 | 0 | monitoruj | 44.0 | 7.9 |  |
+| opolskie | 2022-07-20 | rzepak_ozimy | 160703_5.0011.945 | IV | -81.8 | None | None | 26.7 | 30 | nie dotyczy | 41.3 | 8.3 |  |
+| podkarpackie | 2024-05-25 | ziemniak | 181004_2.0005.3254/1 | IV | -74.7 | None | None | 57.0 | 4 | zalecane | 44.8 | 7.7 |  |
+| podlaskie | 2017-07-05 | burak_cukrowy | 200212_5.0023.154/2 | II | -82.7 | -237.0 | False | 43.7 | 31 | monitoruj | -6.2 | 6.6 |  |
+| pomorskie | 2018-06-20 | pszenica_ozima | 221309_5.0012.5 | III | -146.2 | -204.0 | False | 9.0 | 26 | zalecane | 28.7 | 7.9 |  |
+| śląskie | 2019-06-10 | kukurydza_ziarno | 241307_2.0003.184/1 | IV | -13.2 | None | None | 77.3 | 0 | niezalecane | 21.7 | 10.9 |  |
+| świętokrzyskie | 2022-07-20 | rzepak_ozimy | 261208_5.0009.151 | III | -66.4 | None | None | 51.0 | 31 | niezalecane | 46.9 | 8.2 |  |
+| warmińsko-mazurskie | 2024-05-25 | ziemniak | 281401_5.0022.3141 | IV | -63.6 | None | None | 41.7 | 16 | zalecane | 24.7 | 19.8 |  |
+| wielkopolskie | 2017-07-05 | burak_cukrowy | 302109_5.0020.442/2 | III | -51.5 | -264.0 | False | 51.9 | 8 | monitoruj | 25.3 | 8.4 |  |
+| zachodniopomorskie | 2018-06-20 | pszenica_ozima | 321409_2.0008.73 | III | -171.0 | -204.0 | False | 13.5 | 23 | zalecane | 24.0 | 9.3 |  |
+| lubelskie-2 | 2019-06-10 | kukurydza_ziarno | 061401_1.0003.967/3 | III | -47.9 | None | None | 68.8 | 0 | nie dotyczy | 33.6 | 10.5 |  |
+| wielkopolskie-2 | 2022-07-20 | rzepak_ozimy | 300701_2.0025.22 | III | -136.0 | None | None | 16.1 | 69 | niezalecane | 46.8 | 7.1 |  |
+| mazowieckie-2 | 2024-05-25 | ziemniak | 140208_2.0021.20 | III | -90.1 | None | None | 36.9 | 24 | zalecane | 12.5 | 10.4 |  |
+| podlaskie-2 | 2017-07-05 | burak_cukrowy | 281601_5.0028.153/2 | III | -95.0 | -264.0 | False | 54.7 | 1 | monitoruj | 28.5 | 13.6 |  |
+| dolnośląskie | 2026-11-21 | pszenica_ozima | 022304_5.0032.1/112 | IV | -47.8 | None | None | 99.7 | 0 | nie dotyczy | 21.4 | 14.5 |  |
+| kujawsko-pomorskie | 2026-11-21 | kukurydza_ziarno | 040708_2.0004.20 | III | -7.8 | -232.0 | False | 65.1 | 0 | nie dotyczy | 16.8 | 9.5 |  |
+| lubelskie | 2026-11-21 | rzepak_ozimy | 061704_2.0011.383/2 | III | -89.9 | -205.0 | False | 100.0 | 3 | nie dotyczy | 31.3 | 13.8 |  |
+| lubuskie | 2026-11-21 | ziemniak | 080204_2.0003.319/1 | III | -94.1 | None | None | 100.0 | 0 | nie dotyczy | 12.7 | 7.8 |  |
+| łódzkie | 2026-11-21 | burak_cukrowy | 100608_2.0012.18/13 | III | -61.6 | -182.0 | False | 76.6 | 0 | nie dotyczy | 22.7 | 6.4 |  |
 
 Porównanie z IUNG Monitoring Suszy: wpisz ręcznie wynik IUNG (susza tak/nie) dla gminy, uprawy i okresu w kolumnie `iung` pliku CSV i uruchom ponownie z `--compare`.
