@@ -9,11 +9,14 @@ from dataclasses import dataclass
 import matplotlib.image as mpimg
 import numpy as np
 import rasterio
-from rasterio.features import rasterize
-from scipy.ndimage import distance_transform_edt
+from rasterio.features import rasterize, shapes
+from scipy.ndimage import distance_transform_edt, label
+from shapely.geometry import Point, mapping, shape
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import unary_union
 
 from app.land.cache import DAY, cache
+from app.land.geo import PL_CRS, reproject
 from app.land.models import DataStatus, HydroInfo
 from app.land.net import client
 from app.land.settings import land_settings
@@ -172,6 +175,32 @@ def _nearest_pixel(layers: HydroLayers, group: str, geom_2180: BaseGeometry) -> 
     return float(xs[k]), float(ys[k])
 
 
+def component_geometry(
+    layers: HydroLayers, group: str, point: tuple[float, float], geom_2180: BaseGeometry, radius_m: float = RADIUS_M
+) -> dict | None:
+    mask = layers.masks.get(group)
+    if mask is None:
+        return None
+    t, res = layers.transform, layers.resolution_m
+    row, col = int((t.f - point[1]) / res), int((point[0] - t.c) / res)
+    if not (0 <= row < mask.shape[0] and 0 <= col < mask.shape[1]):
+        return None
+    labels, _ = label(mask, structure=np.ones((3, 3)))
+    if labels[row, col] == 0:
+        return None
+    region = labels == labels[row, col]
+    parts = [shape(g) for g, v in shapes(region.astype(np.uint8), mask=region, transform=t) if v == 1]
+    geom = unary_union(parts).simplify(res).intersection(geom_2180.buffer(radius_m))
+    if geom.is_empty:
+        return None
+    return mapping(reproject(geom, PL_CRS, 4326))
+
+
+def nearest_point(point: tuple[float, float]) -> dict:
+    p = reproject(Point(point), PL_CRS, 4326)
+    return {"lon": round(p.x, 6), "lat": round(p.y, 6)}
+
+
 def parse_feature_info(text: str) -> dict[str, str]:
     block = re.search(r"<FIELDS([^>]*)/?>", text)
     if block is None:
@@ -243,5 +272,10 @@ async def features(layers: HydroLayers, geom_2180: BaseGeometry, info: HydroInfo
     out = []
     for group, result in zip([g for g in groups if points[g] is not None], results, strict=True):
         attributes = result if isinstance(result, dict) else {}
-        out.append({"group": group, **describe(group, attributes, distances[group])})
+        item = {"group": group, **describe(group, attributes, distances[group])}
+        item["nearest_point"] = nearest_point(points[group])
+        geometry = component_geometry(layers, group, points[group], geom_2180)
+        if geometry is not None:
+            item["geometry"] = geometry
+        out.append(item)
     return out

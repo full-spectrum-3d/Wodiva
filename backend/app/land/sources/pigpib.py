@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 from shapely.geometry.base import BaseGeometry
 
 from app.land.cache import DAY, cache
+from app.land.geo import PL_CRS, transformer
 from app.land.net import client
 from app.land.settings import land_settings
 
@@ -40,12 +41,16 @@ def _point(x: float, y: float) -> dict:
 def _well(feature: dict, x: float, y: float, day: date) -> dict:
     a = feature["attributes"]
     g = feature.get("geometry") or {}
-    distance = math.hypot(g.get("x", x) - x, g.get("y", y) - y)
+    wx, wy = g.get("x", x), g.get("y", y)
+    distance = math.hypot(wx - x, wy - y)
+    lon, lat = transformer(PL_CRS, 4326).transform(wx, wy) if "x" in g else (None, None)
     measured = datetime.fromtimestamp(a["DATA_POMIARU"] / 1000, UTC).date() if a.get("DATA_POMIARU") else None
     item = {
         "id": a.get("NR_PKT_MONIT_ILOSC") or a.get("NUMER_CBDH"),
         "place": a.get("MIEJSCOWOSC"),
         "distance_km": round(distance / 1000, 1),
+        "lon": round(lon, 6) if lon is not None else None,
+        "lat": round(lat, 6) if lat is not None else None,
         "observed_now": a.get("AKTUALNIE_OBSERWOWANY") == "Tak",
         "aquifer": a.get("CHARAKTER_PUNKTU"),
         "stratigraphy": a.get("CHRONO"),
