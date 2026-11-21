@@ -1,0 +1,26 @@
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      ERA5_CUBE_PATH: /app/var/era5_land_pl.zarr
+      CACHE_PATH: /app/var/cache.sqlite
+    volumes:
+      - wodiva-var:/app/var
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  era5-updater:
+    build: ./backend
+    env_file: .env
+    environment:
+      ERA5_CUBE_PATH: /app/var/era5_land_pl.zarr
+    volumes:
+      - wodiva-var:/app/var
+    command: ["python", "-m", "scripts.update_era5", "--loop"]
+    restart: unless-stopped
+    profiles: ["era5"]
+
+volumes:
+  wodiva-var:

@@ -1,0 +1,14 @@
+{
+  "name": "Wodiva",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" }
+  },
+  "postCreateCommand": "pip install -e 'backend[dev,era5]' && python -c \"import duckdb; duckdb.connect().execute('INSTALL httpfs')\"",
+  "forwardPorts": [8000, 5173],
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+    }
+  }
+}

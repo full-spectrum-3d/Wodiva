@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wodiva-backend"
+version = "0.1.0"
+description = "Wodiva – asystent wody dla działki rolnej"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.13",
+    "xarray>=2024.6",
+    "zarr>=2.18",
+    "dask>=2024.6",
+    "netCDF4>=1.7",
+    "shapely>=2.0",
+    "pyproj>=3.6",
+    "duckdb>=1.0",
+    "rasterio>=1.3",
+]
+
+[project.optional-dependencies]
+era5 = ["cdsapi>=0.7"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "respx>=0.21", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+include = ["app*", "scripts*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
