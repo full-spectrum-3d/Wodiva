@@ -28,7 +28,7 @@ def data_source(
         updated = datetime.fromtimestamp(path.stat().st_mtime, UTC)
     return DataSource(
         name="ERA5-Land (Copernicus C3S) – kostka dzienna dla Polski, 0,1°",
-        url="https://cds.climate.copernicus.eu/datasets/derived-era5-land-daily-statistics",
+        url="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land",
         license="Licence to use Copernicus Products (bezpłatna, wymaga podania źródła)",
         retrieved_at=updated or datetime.now(UTC),
         period_start=period_start,

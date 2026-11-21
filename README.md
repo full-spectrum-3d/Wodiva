@@ -160,7 +160,7 @@ Wynik i rekomendacje zawsze liczy aplikacja na podstawie tych danych. Dla daty h
 ## 8. Znane ograniczenia
 
 - ERA5-Land ma opóźnienie ok. 5 dni i rozdzielczość ok. 9 km – opad konwekcyjny lokalnie może się różnić; raport pokazuje porównanie ze stacją IMGW.
-- Średni wiatr dobowy z 4 terminów (00, 06, 12, 18 UTC).
+- Kostka ERA5-Land z danych godzinowych: temperatura maks./min. z 8 terminów (co 3 h, możliwe zaniżenie ekstremów o ok. 0,5 °C), punkt rosy, ciśnienie i wiatr z 4 terminów (00, 06, 12, 18 UTC).
 - KBW liczony jako opad − ET0 Penman-Monteith; IUNG używa własnej formuły ewapotranspiracji, więc wartości mogą się nieco różnić.
 - Mapa kategorii gleb IUNG nie ma publicznego API – kategoria wyznaczana z uziarnienia SoilGrids (250 m), można ją podać ręcznie (`soil_category`).
 - Model wody w glebie: jedna warstwa (FAO-56, pojedynczy Kc), bez kapilarnego podsiąku z wód gruntowych, bez śniegu i zamarzania; spływ uproszczony (spadek + kategoria gleby).

@@ -13,16 +13,14 @@ import xarray as xr
 log = logging.getLogger("era5")
 
 AREA = [55.1, 14.0, 49.0, 24.2]
-DAILY_DATASET = "derived-era5-land-daily-statistics"
 HOURLY_DATASET = "reanalysis-era5-land"
-DAILY_REQUESTS = {
-    "tmax": (["2m_temperature"], "daily_maximum"),
-    "tmin": (["2m_temperature"], "daily_minimum"),
-    "mean": (["2m_dewpoint_temperature", "surface_pressure"], "daily_mean"),
-}
+SYNOPTIC = ["00:00", "06:00", "12:00", "18:00"]
+THREE_HOURLY = [f"{h:02d}:00" for h in range(0, 24, 3)]
 HOURLY_REQUESTS = {
     "accum": (["total_precipitation", "surface_solar_radiation_downwards"], ["00:00"]),
-    "wind": (["10m_u_component_of_wind", "10m_v_component_of_wind"], ["00:00", "06:00", "12:00", "18:00"]),
+    "wind": (["10m_u_component_of_wind", "10m_v_component_of_wind"], SYNOPTIC),
+    "temp": (["2m_temperature"], THREE_HOURLY),
+    "humid": (["2m_dewpoint_temperature", "surface_pressure"], SYNOPTIC),
 }
 CHUNKS = {"time": 1024, "latitude": 8, "longitude": 8}
 
@@ -54,20 +52,6 @@ def _days(chunk: Chunk) -> list[str]:
     return [f"{d:02d}" for d in range(1, 32)]
 
 
-def daily_request(variables: list[str], statistic: str, chunk: Chunk) -> dict:
-    return {
-        "product_type": "reanalysis",
-        "variable": variables,
-        "year": str(chunk.year),
-        "month": [f"{m:02d}" for m in chunk.months],
-        "day": _days(chunk),
-        "daily_statistic": statistic,
-        "time_zone": "utc+00:00",
-        "frequency": "1_hourly",
-        "area": AREA,
-    }
-
-
 def hourly_request(variables: list[str], times: list[str], chunk: Chunk) -> dict:
     return {
         "variable": variables,
@@ -83,8 +67,6 @@ def hourly_request(variables: list[str], times: list[str], chunk: Chunk) -> dict
 
 def jobs_for(chunk: Chunk, workdir: Path) -> list[tuple[str, dict, Path]]:
     jobs = []
-    for name, (variables, stat) in DAILY_REQUESTS.items():
-        jobs.append((DAILY_DATASET, daily_request(variables, stat, chunk), workdir / f"daily_{name}_{chunk.tag}.nc"))
     for name, (variables, times) in HOURLY_REQUESTS.items():
         jobs.append(
             (HOURLY_DATASET, hourly_request(variables, times, chunk), workdir / f"hourly_{name}_{chunk.tag}.nc")
@@ -145,28 +127,28 @@ def _first(ds: xr.Dataset, names: tuple[str, ...]) -> xr.DataArray:
     raise KeyError(f"brak zmiennych {names} w {list(ds.data_vars)}")
 
 
-def to_daily(daily: dict[str, xr.Dataset], accum: xr.Dataset, wind: xr.Dataset) -> xr.Dataset:
-    tmax = _first(daily["tmax"], ("t2m", "2m_temperature")) - 273.15
-    tmin = _first(daily["tmin"], ("t2m", "2m_temperature")) - 273.15
-    tdew = _first(daily["mean"], ("d2m", "2m_dewpoint_temperature")) - 273.15
-    sp = _first(daily["mean"], ("sp", "surface_pressure")) / 1000.0
-    for arr in (tmax, tmin, tdew, sp):
-        arr.coords["time"] = pd.to_datetime(arr["time"].values).normalize()
+def _daily(arr: xr.DataArray, how: str) -> xr.DataArray:
+    return getattr(arr.resample(time="1D"), how)()
+
+
+def to_daily(accum: xr.Dataset, wind: xr.Dataset, temp: xr.Dataset, humid: xr.Dataset) -> xr.Dataset:
+    t2m = _first(temp, ("t2m", "2m_temperature")) - 273.15
+    tdew = _first(humid, ("d2m", "2m_dewpoint_temperature")) - 273.15
+    sp = _first(humid, ("sp", "surface_pressure")) / 1000.0
     acc = accum.sel(time=accum["time"].dt.hour == 0)
     shifted_time = pd.to_datetime(acc["time"].values) - pd.Timedelta(days=1)
     tp = (_first(acc, ("tp", "total_precipitation")) * 1000.0).assign_coords(time=shifted_time)
     rs = (_first(acc, ("ssrd", "surface_solar_radiation_downwards")) / 1e6).assign_coords(time=shifted_time)
     speed = np.hypot(_first(wind, ("u10",)), _first(wind, ("v10",)))
-    wind10 = speed.resample(time="1D").mean()
     ds = xr.Dataset(
         {
             "precip_mm": tp.clip(min=0),
-            "tmax_c": tmax,
-            "tmin_c": tmin,
-            "tdew_c": tdew,
-            "wind10_ms": wind10,
+            "tmax_c": _daily(t2m, "max"),
+            "tmin_c": _daily(t2m, "min"),
+            "tdew_c": _daily(tdew, "mean"),
+            "wind10_ms": _daily(speed, "mean"),
             "rs_mj": rs.clip(min=0),
-            "pressure_kpa": sp,
+            "pressure_kpa": _daily(sp, "mean"),
         }
     )
     ds = ds.dropna("time", how="all", subset=["tmax_c"])
@@ -175,14 +157,12 @@ def to_daily(daily: dict[str, xr.Dataset], accum: xr.Dataset, wind: xr.Dataset) 
 
 
 def assemble(workdir: Path, chunk_list: list[Chunk]) -> xr.Dataset:
-    parts: dict[str, list[xr.Dataset]] = {k: [] for k in ("tmax", "tmin", "mean", "accum", "wind")}
+    parts: dict[str, list[xr.Dataset]] = {k: [] for k in HOURLY_REQUESTS}
     for chunk in chunk_list:
-        for name in DAILY_REQUESTS:
-            parts[name].append(open_any(workdir / f"daily_{name}_{chunk.tag}.nc"))
         for name in HOURLY_REQUESTS:
             parts[name].append(open_any(workdir / f"hourly_{name}_{chunk.tag}.nc"))
     joined = {k: xr.concat(v, dim="time").drop_duplicates("time") for k, v in parts.items()}
-    return to_daily({k: joined[k] for k in DAILY_REQUESTS}, joined["accum"], joined["wind"])
+    return to_daily(joined["accum"], joined["wind"], joined["temp"], joined["humid"])
 
 
 def write_cube(ds: xr.Dataset, out: Path, append: bool = False) -> None:
