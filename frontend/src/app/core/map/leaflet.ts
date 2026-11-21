@@ -25,6 +25,11 @@ export async function loadLeaflet(): Promise<typeof Leaflet> {
   return ((mod as unknown as { default?: typeof Leaflet }).default ?? mod) as typeof Leaflet;
 }
 
+/** Mapa podstawowa (domyślna): OpenStreetMap — nie turystyczna, zimowa, lotnicza ani z ruchem drogowym. */
+export function basicLayer(L: typeof Leaflet): Leaflet.TileLayer {
+  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
+}
+
 export function orthoLayer(L: typeof Leaflet): Leaflet.TileLayer.WMS {
   return L.tileLayer.wms(ORTO_WMS, { layers: 'Raster', format: 'image/jpeg', maxZoom: 20, attribution: GUGIK_ATTRIBUTION });
 }

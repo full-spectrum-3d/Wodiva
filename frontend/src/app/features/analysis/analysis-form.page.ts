@@ -13,6 +13,14 @@ const ANALYSIS_YEARS = 10;
 
 type FocusTarget = 'summary' | 'form' | 'error' | 'parcel';
 
+/** Kroki kreatora (lewa część strony głównej); mapa wyboru działki jest w prawej części. */
+export const WIZARD_STEPS = [
+  { n: 1, label: 'Działka' },
+  { n: 2, label: 'Data analizy' },
+  { n: 3, label: 'Uprawa' },
+] as const;
+export type WizardStep = (typeof WIZARD_STEPS)[number]['n'];
+
 type ParcelLookup =
   | { state: 'idle' }
   | { state: 'loading' }
@@ -71,12 +79,15 @@ export class AnalysisFormPage {
     const l = this.lookup();
     return l.state === 'found' ? l.parcel : null;
   });
+  protected readonly steps = WIZARD_STEPS;
+  protected readonly step = signal<WizardStep>(1);
   protected readonly locating = signal(false);
   protected readonly showSummary = signal(false);
   protected readonly serverError = signal<string | null>(null);
 
   private readonly summary = viewChild<ElementRef<HTMLElement>>('summary');
   private readonly formHeading = viewChild<ElementRef<HTMLElement>>('formHeading');
+  private readonly stepHeading = viewChild<ElementRef<HTMLElement>>('stepHeading');
   private readonly errorAlert = viewChild<ElementRef<HTMLElement>>('errorAlert');
   private lastLookedUp = '';
   private lookupSeq = 0;
@@ -140,8 +151,38 @@ export class AnalysisFormPage {
     );
   }
 
+  /** „Dalej”: sprawdza tylko pole bieżącego kroku. */
+  protected next(): void {
+    const field = this.stepField(this.step())();
+    field.markAsTouched();
+    if (field.invalid()) {
+      field.focusBoundControl();
+      return;
+    }
+    this.goTo((this.step() + 1) as WizardStep);
+  }
+
+  protected back(): void {
+    this.goTo((this.step() - 1) as WizardStep);
+  }
+
+  /** Wskaźnik kroków: powrót do kroku już odwiedzonego. */
+  protected goTo(step: WizardStep): void {
+    this.step.set(step);
+    afterNextRender(() => this.stepHeading()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  private stepField(step: WizardStep) {
+    return step === 1 ? this.analysis.parcelId : step === 2 ? this.analysis.date : this.analysis.crop;
+  }
+
   protected async onSubmit(event: Event): Promise<void> {
     event.preventDefault();
+    // Enter w polu przed ostatnim krokiem działa jak „Dalej”, a nie wysłanie analizy.
+    if (this.step() < 3) {
+      this.next();
+      return;
+    }
     this.serverError.set(null);
     this.focusTarget = null;
     await submit(this.analysis, {
@@ -162,6 +203,8 @@ export class AnalysisFormPage {
       },
       onInvalid: () => {
         this.showSummary.set(true);
+        // wróć do pierwszego kroku z błędem — podsumowanie stoi nad krokami
+        this.step.set(this.steps.find((s) => this.stepField(s.n)().invalid())?.n ?? this.step());
         this.focusTarget = 'summary';
       },
     });
@@ -174,8 +217,11 @@ export class AnalysisFormPage {
     this.abort?.abort();
   }
 
+  /** Link w podsumowaniu błędów: przełącz na krok z tym polem i ustaw na nim fokus. */
   protected focusField(error: { fieldTree: () => { focusBoundControl(): void } }): void {
-    error.fieldTree().focusBoundControl();
+    const owner = this.steps.find((s) => (this.stepField(s.n)().errors() as unknown[]).includes(error));
+    if (owner) this.step.set(owner.n);
+    afterNextRender(() => error.fieldTree().focusBoundControl(), { injector: this.injector });
   }
 
   private runLookup(request: Promise<Parcel>): void {
@@ -198,6 +244,7 @@ export class AnalysisFormPage {
   private handleError(err: ApiError): void {
     if (err.status === 404) {
       this.lookup.set({ state: 'error', message: err.message, candidates: err.candidates });
+      this.step.set(1);
       this.focusTarget = 'parcel';
       return;
     }

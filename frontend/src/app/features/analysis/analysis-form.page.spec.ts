@@ -46,26 +46,83 @@ describe('AnalysisFormPage', () => {
     return { fixture, http, el, settle };
   }
 
+  const button = (el: HTMLElement, text: string) =>
+    [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text)!;
+  const stepTitle = (el: HTMLElement) => el.querySelector('#step-heading')?.textContent?.replace(/\s+/g, ' ').trim();
+
+  /** Przejście kreatora: działka → Dalej → (data domyślna) → Dalej → uprawa → Sprawdź działkę. */
+  async function fillWizard(el: HTMLElement, settle: () => Promise<void>, parcelId: string, crop = 'kukurydza') {
+    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
+    parcel.value = parcelId;
+    parcel.dispatchEvent(new Event('input'));
+    button(el, 'Dalej').click();
+    await settle();
+    button(el, 'Dalej').click();
+    await settle();
+    el.querySelector<HTMLInputElement>(`input[value=${crop}]`)!.click();
+    button(el, 'Sprawdź działkę').click();
+    await settle();
+  }
+
   function type(input: HTMLInputElement, value: string) {
     input.value = value;
     input.dispatchEvent(new Event('input'));
     input.dispatchEvent(new Event('change'));
   }
 
-  it('renders crop tiles from /api/crops', async () => {
-    const { el } = await setup();
-    expect(el.querySelectorAll('input[type=radio]').length).toBe(2);
+  it('renders crop tiles from /api/crops on the third step', async () => {
+    const { el, settle } = await setup();
+    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
+    parcel.value = '141201_1.0001.6509';
+    parcel.dispatchEvent(new Event('input'));
+    button(el, 'Dalej').click();
+    await settle();
+    button(el, 'Dalej').click();
+    await settle();
+    expect(stepTitle(el)).toContain('Uprawa');
+    expect(el.querySelectorAll('.crop-tile input[type=radio]').length).toBe(2);
     expect(el.textContent).toContain('Okres krytyczny: kwitnienie');
   });
 
-  it('shows error summary and sends nothing when the form is empty', async () => {
+  it('stays on step 1 with a field error when Dalej is pressed without a parcel', async () => {
     const { el, http, settle } = await setup();
-    el.querySelector<HTMLButtonElement>('button[type=submit]')!.click();
+    expect(stepTitle(el)).toContain('Działka');
+    button(el, 'Dalej').click();
     await settle();
-    const summary = el.querySelector('[role=alert]');
-    expect(summary?.textContent).toContain('Podaj numer działki');
-    expect(summary?.textContent).toContain('Wybierz uprawę');
+    expect(stepTitle(el)).toContain('Działka');
+    expect(el.querySelector('#parcel-id-error')?.textContent).toContain('Podaj numer działki');
     expect(el.querySelector('#parcel-id')?.getAttribute('aria-invalid')).toBe('true');
+    http.expectNone('/api/analyze');
+  });
+
+  it('walks the wizard forward and back keeping the values; Enter acts as Dalej', async () => {
+    const { el, settle } = await setup();
+    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
+    parcel.value = '141201_1.0001.6509';
+    parcel.dispatchEvent(new Event('input'));
+    el.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await settle();
+    expect(stepTitle(el)).toContain('Data analizy');
+    expect(el.querySelector('[aria-current=step]')?.textContent).toContain('Data analizy');
+    button(el, 'Wstecz').click();
+    await settle();
+    expect(stepTitle(el)).toContain('Działka');
+    expect(el.querySelector<HTMLInputElement>('#parcel-id')!.value).toBe('141201_1.0001.6509');
+  });
+
+  it('shows an error summary on the last step when no crop is chosen', async () => {
+    const { el, http, settle } = await setup();
+    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
+    parcel.value = '141201_1.0001.6509';
+    parcel.dispatchEvent(new Event('input'));
+    button(el, 'Dalej').click();
+    await settle();
+    button(el, 'Dalej').click();
+    await settle();
+    button(el, 'Sprawdź działkę').click();
+    await settle();
+    expect(el.querySelector('[role=alert]')?.textContent).toContain('Wybierz uprawę');
+    expect(stepTitle(el)).toContain('Uprawa');
     http.expectNone('/api/analyze');
   });
 
@@ -116,12 +173,7 @@ describe('AnalysisFormPage', () => {
 
   it('submits a valid form and opens the report with it in navigation state', async () => {
     const { el, http, settle } = await setup();
-    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
-    parcel.value = '141201_1.0001.6509';
-    parcel.dispatchEvent(new Event('input'));
-    el.querySelector<HTMLInputElement>('input[value=kukurydza]')!.click();
-    el.querySelector<HTMLButtonElement>('button[type=submit]')!.click();
-    await settle();
+    await fillWizard(el, settle, '141201_1.0001.6509');
     expect(el.querySelector('app-analysis-progress h1')?.textContent).toContain('Analizuję działkę');
     expect(el.querySelector('form')).toBeNull();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
@@ -135,15 +187,14 @@ describe('AnalysisFormPage', () => {
 
   it('keeps the form and shows a message when the server fails', async () => {
     const { el, http, settle } = await setup();
-    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
-    parcel.value = '141201_1.0001.6509';
-    parcel.dispatchEvent(new Event('input'));
-    el.querySelector<HTMLInputElement>('input[value=kukurydza]')!.click();
-    el.querySelector<HTMLButtonElement>('button[type=submit]')!.click();
-    await settle();
+    await fillWizard(el, settle, '141201_1.0001.6509');
     http.expectOne('/api/analyze').flush(null, { status: 502, statusText: 'Bad Gateway' });
     await settle();
     expect(el.textContent).toContain('Analiza się nie udała');
+    button(el, 'Wstecz').click();
+    await settle();
+    button(el, 'Wstecz').click();
+    await settle();
     expect(el.querySelector<HTMLInputElement>('#parcel-id')!.value).toBe('141201_1.0001.6509');
   });
 
@@ -152,10 +203,10 @@ describe('AnalysisFormPage', () => {
     const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
     parcel.value = 'ab ';
     parcel.dispatchEvent(new Event('input'));
-    el.querySelector<HTMLInputElement>('input[value=kukurydza]')!.click();
-    el.querySelector<HTMLButtonElement>('button[type=submit]')!.click();
+    button(el, 'Dalej').click();
     await settle();
-    expect(el.querySelector('[role=alert]')?.textContent).toContain('Numer działki jest za krótki');
+    expect(el.querySelector('#parcel-id-error')?.textContent).toContain('Numer działki jest za krótki');
+    expect(stepTitle(el)).toContain('Działka');
     http.expectNone('/api/analyze');
   });
 
@@ -177,12 +228,7 @@ describe('AnalysisFormPage', () => {
   it('aborts the analysis and does not navigate when the page is left', async () => {
     const { fixture, el, http, settle } = await setup();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
-    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
-    parcel.value = '141201_1.0001.6509';
-    parcel.dispatchEvent(new Event('input'));
-    el.querySelector<HTMLInputElement>('input[value=kukurydza]')!.click();
-    el.querySelector<HTMLButtonElement>('button[type=submit]')!.click();
-    await settle();
+    await fillWizard(el, settle, '141201_1.0001.6509');
     const req = http.expectOne('/api/analyze');
     fixture.destroy();
     await new Promise((resolve) => setTimeout(resolve));
@@ -192,18 +238,13 @@ describe('AnalysisFormPage', () => {
 
   it('cancel aborts the request and brings the filled form back', async () => {
     const { el, http, settle } = await setup();
-    const parcel = el.querySelector<HTMLInputElement>('#parcel-id')!;
-    parcel.value = '141201_1.0001.6509';
-    parcel.dispatchEvent(new Event('input'));
-    el.querySelector<HTMLInputElement>('input[value=kukurydza]')!.click();
-    el.querySelector<HTMLButtonElement>('button[type=submit]')!.click();
-    await settle();
+    await fillWizard(el, settle, '141201_1.0001.6509');
     const req = http.expectOne('/api/analyze');
     [...el.querySelectorAll<HTMLButtonElement>('app-analysis-progress button')].find((b) => b.textContent?.includes('Anuluj'))!.click();
     await settle();
     expect(req.cancelled).toBe(true);
     expect(el.querySelector('h1')?.textContent).toContain('Sprawdź wodę');
     expect(el.querySelector('[role=alert]')).toBeNull();
-    expect(el.querySelector<HTMLInputElement>('#parcel-id')!.value).toBe('141201_1.0001.6509');
+    expect(stepTitle(el)).toContain('Uprawa');
   });
 });
