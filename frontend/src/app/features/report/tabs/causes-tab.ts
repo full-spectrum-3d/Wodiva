@@ -17,7 +17,7 @@ import { EvidenceText } from '../ui/evidence-text';
         <ol class="mt-4 space-y-4">
           @for (c of causes(); track c.code) {
             <li>
-              <p class="font-semibold">{{ c.rank }}. {{ c.label }}</p>
+              <p class="font-semibold"><span aria-hidden="true">{{ c.rank }}. </span>{{ c.label }}</p>
               @if (c.contribution_mm != null) {
                 <div class="mt-1 flex items-center gap-3">
                   <div class="h-3 flex-1 rounded-sm bg-surface-sunken" aria-hidden="true">

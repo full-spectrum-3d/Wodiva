@@ -3,7 +3,7 @@ import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, i
 import type { Geometry, Point } from 'geojson';
 import type * as Leaflet from 'leaflet';
 
-import { BDOT_WMS, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../../core/map/leaflet';
+import { addPolishZoom, BDOT_WMS, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../../core/map/leaflet';
 import { Report } from '../../../core/report.model';
 import { MapFocus } from './map-focus';
 import { MapObject, mapObjects } from './map-objects';
@@ -49,12 +49,17 @@ export class ParcelMap {
   private readonly focus = inject(MapFocus);
   private readonly frame = viewChild.required<ElementRef<HTMLElement>>('frame');
   private readonly canvas = viewChild.required<ElementRef<HTMLElement>>('canvas');
+  private readonly fullscreenButton = viewChild<ElementRef<HTMLButtonElement>>('fullscreenButton');
+  private announceTimer?: ReturnType<typeof setTimeout>;
 
   protected readonly objects = computed(() => mapObjects(this.report()));
   protected readonly ndvi = computed(() => this.report().satellite?.details?.ndvi_overlay ?? null);
   protected readonly ndviGradient = computed(() => `linear-gradient(to right, ${this.ndvi()?.colors.join(', ')})`);
   protected readonly ndviOn = signal(false);
   protected readonly failed = signal(false);
+  protected readonly isFullscreen = signal(false);
+  /** Komunikat dla czytnika ekranu po „Pokaż na mapie” (fokus zostaje na przycisku). */
+  protected readonly announcement = signal('');
   protected readonly legendKinds = computed(() => [...new Set(this.objects().map((o) => o.kind))].map((k) => ({ kind: k, label: LEGEND_KINDS[k] })));
   protected readonly hasDepressions = computed(() => (this.report().terrain?.depressions.length ?? 0) > 0);
   protected readonly geoportalUrl = computed(
@@ -70,7 +75,10 @@ export class ParcelMap {
     afterNextRender(() => {
       void this.init().catch(() => this.failed.set(true));
     });
-    destroyRef.onDestroy(() => this.map?.remove());
+    destroyRef.onDestroy(() => {
+      clearTimeout(this.announceTimer);
+      this.map?.remove();
+    });
 
     effect(() => {
       const req = this.focus.request();
@@ -98,10 +106,17 @@ export class ParcelMap {
 
     // shortcut: na telefonie przesuwanie jednym palcem wyłączone (przewija stronę), działa szczypanie i pełny ekran;
     // prawdziwe „przesuwanie dwoma palcami” wymaga wtyczki gesture-handling — dodać, jeśli rolnicy zgłoszą potrzebę.
-    const map = L.map(this.canvas().nativeElement, { zoomControl: true, attributionControl: true, dragging: !L.Browser.mobile });
+    const map = L.map(this.canvas().nativeElement, { zoomControl: false, attributionControl: true, dragging: !L.Browser.mobile });
     this.map = map;
+    addPolishZoom(L, map);
     this.frame().nativeElement.addEventListener('fullscreenchange', () => {
       const full = document.fullscreenElement === this.frame().nativeElement;
+      this.isFullscreen.set(full);
+      // przycisk „Pełny ekran” jest poza ramką: fokus na „Zamknij pełny ekran” i z powrotem po wyjściu
+      setTimeout(() => {
+        const target = full ? this.frame().nativeElement.querySelector<HTMLElement>('.map-exit') : this.fullscreenButton()?.nativeElement;
+        target?.focus();
+      });
       if (L.Browser.mobile) full ? map.dragging.enable() : map.dragging.disable();
       map.invalidateSize();
     });
@@ -156,7 +171,15 @@ export class ParcelMap {
     overlays['Wody i mokradła (BDOT10k)'] = wms(BDOT_WMS, 'WPow,Mo,Szu');
     overlays['Lasy i zadrzewienia (BDOT10k)'] = wms(BDOT_WMS, 'TLes,RKr');
 
-    L.control.layers(bases, overlays, { collapsed: true }).addTo(map);
+    const layersControl = L.control.layers(bases, overlays, { collapsed: true }).addTo(map);
+    const toggle = layersControl.getContainer()?.querySelector<HTMLElement>('.leaflet-control-layers-toggle');
+    toggle?.setAttribute('aria-label', 'Ustawienia mapy: rodzaj mapy i warstwy');
+    toggle?.setAttribute('title', 'Ustawienia mapy');
+    map.on('popupopen', (e) => {
+      const close = e.popup.getElement()?.querySelector('.leaflet-popup-close-button');
+      close?.setAttribute('aria-label', 'Zamknij okienko');
+      close?.setAttribute('title', 'Zamknij okienko');
+    });
     map.on('overlayadd', (e) => e.layer === ndviLayer && this.ndviOn.set(true));
     map.on('overlayremove', (e) => e.layer === ndviLayer && this.ndviOn.set(false));
 
@@ -263,6 +286,16 @@ export class ParcelMap {
     else if (layer.getBounds) map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 18, animate: !reduce });
     layer.openPopup?.();
     this.highlight(layer);
+    this.announce(key);
+  }
+
+  private announce(key: string): void {
+    const label = this.objects().find((o) => o.key === key)?.label;
+    if (!label) return;
+    this.announcement.set('');
+    clearTimeout(this.announceTimer);
+    // pusty tekst przed właściwym, żeby ten sam komunikat został ogłoszony ponownie
+    this.announceTimer = setTimeout(() => this.announcement.set(`Pokazano na mapie: ${label}`), 50);
   }
 
   /** Krótkie podświetlenie: grubsza linia albo pulsujący znacznik (klasa CSS). */

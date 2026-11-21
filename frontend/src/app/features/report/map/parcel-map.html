@@ -4,12 +4,14 @@
     <h2 id="map-heading" class="text-xl">Mapa działki</h2>
     <div class="no-print flex flex-wrap gap-2">
       <button type="button" class="btn-secondary" (click)="backToParcel()">Wróć do działki</button>
-      <button type="button" class="btn-secondary" (click)="fullscreen()">Pełny ekran</button>
+      <button #fullscreenButton type="button" class="btn-secondary" [attr.aria-pressed]="isFullscreen()" (click)="fullscreen()">Pełny ekran</button>
       <a class="btn-secondary" [href]="geoportalUrl()" target="_blank" rel="noopener">
         Otwórz w Geoportalu<span class="visually-hidden"> (nowa karta)</span>
       </a>
     </div>
   </div>
+
+  <p class="visually-hidden" role="status">{{ announcement() }}</p>
 
   @if (failed()) {
     <img class="mt-4 h-auto w-full rounded-sm" [src]="'/api/report/' + r.id + '/map.png'" width="910" height="910"
@@ -18,6 +20,9 @@
   } @else {
     <div #frame class="map-frame no-print mt-4">
       <div #canvas class="map-canvas" role="region" aria-label="Mapa działki"></div>
+      @if (isFullscreen()) {
+        <button type="button" class="btn-secondary map-exit" (click)="fullscreen()">Zamknij pełny ekran</button>
+      }
       @if (ndviOn() && ndvi(); as n) {
         <div class="map-ndvi-bar">
           <p class="font-semibold">Stan roślin (NDVI){{ n.date ? ', zdjęcie ' + n.date : '' }}</p>

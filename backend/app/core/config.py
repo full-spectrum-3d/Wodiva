@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
     analysis_years: int = 10
     http_timeout_s: float = 12.0
     analyze_mock: bool = False
+    report_retention_days: int = Field(90, ge=1)
 
 
 @lru_cache

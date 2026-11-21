@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from app.assistant import kolba
@@ -116,6 +118,10 @@ def test_edo_classification():
     assert edo.classify((231, 160, 2))[0] == "ostrzeżenie"
     assert edo.classify((10, 120, 200))[0] == "inna klasa"
     assert str(edo.dekad_start(DAY)) == "2025-06-11"
+    assert str(edo.last_complete_dekad(DAY)) == "2025-06-11"  # 20.06 zamyka dekadę
+    assert str(edo.last_complete_dekad(date(2025, 6, 19))) == "2025-06-01"
+    assert str(edo.last_complete_dekad(date(2025, 7, 5))) == "2025-06-21"
+    assert str(edo.last_complete_dekad(date(2025, 2, 28))) == "2025-02-21"
 
 
 def test_assistant_offline(parcel, water, soil, irrigation, land):

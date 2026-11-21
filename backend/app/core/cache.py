@@ -26,10 +26,12 @@ class Cache:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        self._db = sqlite3.connect(str(path), check_same_thread=False)
+        self._db = sqlite3.connect(str(path), check_same_thread=False, timeout=30)
+        self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute(
             "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, expires REAL NOT NULL)"
         )
+        self._db.execute("CREATE INDEX IF NOT EXISTS cache_expires ON cache(expires)")
         self._db.commit()
 
     @staticmethod
@@ -51,6 +53,20 @@ class Cache:
                 (key, json.dumps(value, default=str), time.time() + ttl),
             )
             self._db.commit()
+
+    def purge_expired(self, batch: int = 5000) -> int:
+        # partiami, z lockiem zwalnianym między nimi: get/set z pętli zdarzeń nie czekają na cały purge
+        total = 0
+        while True:
+            with self._lock:
+                n = self._db.execute(
+                    "DELETE FROM cache WHERE rowid IN (SELECT rowid FROM cache WHERE expires < ? LIMIT ?)",
+                    (time.time(), batch),
+                ).rowcount
+                self._db.commit()
+            total += n
+            if n < batch:
+                return total
 
     async def get_or_fetch(self, source: str, parts: tuple, fetch: Callable[[], Awaitable[Any]]) -> Any:
         key = self.key(source, *parts)

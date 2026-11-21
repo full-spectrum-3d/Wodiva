@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import threading
 
 import matplotlib
 
@@ -35,7 +36,16 @@ def _outline(ax, geom: BaseGeometry, **kwargs) -> None:
             ax.plot(x, y, **kwargs)
 
 
+# pyplot trzyma stan globalny i nie jest bezpieczny wątkowo, a render idzie w asyncio.to_thread
+_PLOT_LOCK = threading.Lock()
+
+
 def render(parcel_2180: BaseGeometry, artifacts: LandArtifacts | None) -> bytes:
+    with _PLOT_LOCK:
+        return _render(parcel_2180, artifacts)
+
+
+def _render(parcel_2180: BaseGeometry, artifacts: LandArtifacts | None) -> bytes:
     artifacts = artifacts or LandArtifacts()
     fig, ax = plt.subplots(figsize=(7, 7), dpi=130)
     handles = []

@@ -42,7 +42,7 @@
         }
       </dl>
       <div class="no-print flex flex-wrap gap-3">
-        <a class="btn-primary" [href]="'/api/report/' + r.id + '.pdf'" target="_blank" rel="noopener">Pobierz PDF</a>
+        <a class="btn-primary" [href]="'/api/report/' + r.id + '.pdf'" target="_blank" rel="noopener">Pobierz PDF<span class="visually-hidden"> (nowa karta)</span></a>
         <button type="button" class="btn-secondary" (click)="print()">Drukuj</button>
         <a class="btn-secondary" routerLink="/" [queryParams]="r.mock ? { mock: true } : {}">Nowa analiza</a>
       </div>

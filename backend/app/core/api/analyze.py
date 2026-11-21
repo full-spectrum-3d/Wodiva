@@ -90,10 +90,13 @@ async def run_analysis(req: AnalyzeRequest) -> Report:
         )
         slope = obs.terrain.slope_mean_pct if obs.terrain else None
         phase = obs.satellite.phase_offset_days if obs.satellite else None
-        result = water.compute(prep, slope, phase)
+        # obliczenia CPU poza pętlą zdarzeń, żeby jedna analiza nie wstrzymywała innych zapytań
+        result = await asyncio.to_thread(water.compute, prep, slope, phase)
         interp = LandInterpretation()
         if land is not None:
-            interp = land.interpret(parcel, result.state, result.soil, result.irrigation, obs)
+            interp = await asyncio.to_thread(
+                land.interpret, parcel, result.state, result.soil, result.irrigation, obs
+            )
         store["total"] = round(time.perf_counter() - started, 2)
         data = ReportInput(
             parcel=parcel,
@@ -109,7 +112,7 @@ async def run_analysis(req: AnalyzeRequest) -> Report:
             timings_s=dict(store),
         )
         builder = _optional("app.report.builder")
-        return builder.build(data) if builder is not None else default_build(data)
+        return await asyncio.to_thread(builder.build, data) if builder is not None else default_build(data)
     finally:
         timings.reset(token)
 
@@ -119,7 +122,7 @@ async def analyze(req: AnalyzeRequest, mock: bool = Query(False)) -> Report:
     if mock or get_settings().analyze_mock:
         report = mock_report(req)
         builder = _optional("app.report.builder")
-        return builder.persist(report) if builder is not None else report
+        return await asyncio.to_thread(builder.persist, report) if builder is not None else report
     try:
         return await run_analysis(req)
     except InputError as exc:

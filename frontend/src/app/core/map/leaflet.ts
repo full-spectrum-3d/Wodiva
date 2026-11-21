@@ -52,3 +52,8 @@ export function parcelOutline(L: typeof Leaflet, geometry: Geometry, pane?: stri
     L.geoJSON(geometry, { ...opts, style: { color: PARCEL_COLOR, weight: 3, fillColor: PARCEL_COLOR, fillOpacity: 0.12 } }),
   ]);
 }
+
+/** Przyciski przybliżania z polskimi etykietami (domyślne „Zoom in/out” są po angielsku). */
+export function addPolishZoom(L: typeof Leaflet, map: Leaflet.Map): void {
+  L.control.zoom({ zoomInTitle: 'Przybliż', zoomOutTitle: 'Oddal' }).addTo(map);
+}

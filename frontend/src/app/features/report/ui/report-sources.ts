@@ -15,7 +15,7 @@ const STATUS_LABEL = { ok: 'aktualne', częściowo: 'częściowe', brak: 'brak' 
       @for (s of sources(); track $index) {
         <li class="py-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <a [href]="s.url" target="_blank" rel="noopener" class="font-semibold">{{ s.name }}</a>
+            <a [href]="s.url" target="_blank" rel="noopener" class="font-semibold">{{ s.name }}<span class="visually-hidden"> (nowa karta)</span></a>
             <span class="inline-flex items-center gap-2 text-sm font-semibold">
               <span class="size-2.5 rounded-full" [class]="fill(s)" aria-hidden="true"></span>
               {{ statusLabel[s.status] }}
