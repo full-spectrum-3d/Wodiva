@@ -57,7 +57,7 @@ async def _query(request: str, key: str, extra: dict) -> list[dict]:
         if time.monotonic() < _blocked_until:
             raise SourceError("uldk", "usługa blokuje zapytania, ponowimy za kilka minut")
         params = {"request": request, "result": ",".join(FIELDS), "srid": "2180", **extra}
-        response = await fetch("uldk", URL, params=params)
+        response = await fetch("uldk", URL, params=params, retries=0)  # rolnik czeka; zapas: eksport EGiB
         if response.url.host != URL_HOST:
             raise SourceError("uldk", f"przekierowanie na {response.url.host}")
         return parse_response(response.text)

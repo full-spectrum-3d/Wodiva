@@ -81,7 +81,7 @@ async def _point_info(x: float, y: float) -> list[tuple[str, str | None]]:
             "INFO_FORMAT": "text/html",
             "FORMAT": "image/png",
         }
-        response = await fetch("egib", URL, params=params, retries=1)
+        response = await fetch("egib", URL, params=params, retries=0)
         # None, nie []: pusta odpowiedź WMS (np. strona błędu z HTTP 200) nie może trafić do cache na 30 dni
         return [list(item) for item in parse_feature_info(response.text)] or None
 
