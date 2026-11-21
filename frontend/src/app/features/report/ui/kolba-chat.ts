@@ -5,6 +5,7 @@ import { form, FormField, maxLength, readonly, validate } from '@angular/forms/s
 import { WodivaApi } from '../../../core/wodiva-api';
 import { ApiError, AssistantAnswer } from '../../../core/wodiva-api.model';
 import { EvidenceRef } from './evidence-ref';
+import { EvidenceText } from './evidence-text';
 
 const MAX_LENGTH = 500;
 
@@ -22,7 +23,7 @@ export function modeLabel(mode: string): string {
 /** Asystent Kolba (DESIGN.md §6.4) — odpowiada tylko z raportu; liczby pochodzą z backendu, nie z modelu. */
 @Component({
   selector: 'app-kolba-chat',
-  imports: [FormField, EvidenceRef],
+  imports: [FormField, EvidenceRef, EvidenceText],
   template: `
     <p class="text-sm text-text-muted">Kolba odpowiada tylko na podstawie tego raportu. Nie liczy nowych wyników.</p>
 
@@ -30,7 +31,7 @@ export function modeLabel(mode: string): string {
       @for (x of history(); track $index) {
         <li>
           <p class="font-semibold">{{ x.question }}</p>
-          <p class="mt-1 rounded-md bg-surface-sunken p-3 whitespace-pre-line">{{ x.answer.answer }}</p>
+          <p class="mt-1 rounded-md bg-surface-sunken p-3 whitespace-pre-line"><app-evidence-text [text]="x.answer.answer" /></p>
           @if (x.answer.evidence.length) {
             <p class="mt-1 text-sm">
               Źródła:

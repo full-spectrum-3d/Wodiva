@@ -1,0 +1,99 @@
+@let r = report();
+<section class="report-section" aria-labelledby="map-heading">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h2 id="map-heading" class="text-xl">Mapa działki</h2>
+    <div class="no-print flex flex-wrap gap-2">
+      <button type="button" class="btn-secondary" (click)="backToParcel()">Wróć do działki</button>
+      <button type="button" class="btn-secondary" (click)="fullscreen()">Pełny ekran</button>
+      <a class="btn-secondary" [href]="geoportalUrl()" target="_blank" rel="noopener">
+        Otwórz w Geoportalu<span class="visually-hidden"> (nowa karta)</span>
+      </a>
+    </div>
+  </div>
+
+  @if (failed()) {
+    <img class="mt-4 h-auto w-full rounded-sm" [src]="'/api/report/' + r.id + '/map.png'" width="910" height="910"
+      [alt]="'Mapa działki ' + r.parcel.id" />
+    <p class="mt-2 text-sm text-text-muted">Mapa interaktywna nie wczytała się — pokazujemy mapę statyczną.</p>
+  } @else {
+    <div #frame class="map-frame no-print mt-4">
+      <div #canvas class="map-canvas" role="region" aria-label="Mapa działki"></div>
+      @if (ndviOn() && ndvi(); as n) {
+        <div class="map-ndvi-bar">
+          <p class="font-semibold">Stan roślin (NDVI){{ n.date ? ', zdjęcie ' + n.date : '' }}</p>
+          <div class="mt-1 h-3 rounded-sm" [style.background]="ndviGradient()"></div>
+          <div class="mt-1 flex justify-between text-xs"><span>0 goła gleba</span><span>0,9 bujne rośliny</span></div>
+        </div>
+      }
+    </div>
+    <img class="print-only mt-4 h-auto w-full" [src]="'/api/report/' + r.id + '/map.png'" width="910" height="910" alt=""
+      loading="lazy" />
+  }
+
+  <details class="map-legend mt-4" open>
+    <summary class="font-semibold">Legenda</summary>
+    <ul class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+      <li class="flex items-center gap-2"><span class="lg lg-parcel" aria-hidden="true"></span>Granica działki</li>
+      <li class="flex items-center gap-2"><span class="lg lg-zone" aria-hidden="true"></span>Strefa 500 m (tu raport liczy wody, mokradła, zadrzewienia)</li>
+      @for (k of legendKinds(); track k.kind) {
+        <li class="flex items-center gap-2"><span class="lg" [class]="'lg lg-' + k.kind" aria-hidden="true"></span>{{ k.label }}</li>
+      }
+    </ul>
+    @if (!hasDepressions()) {
+      <p class="mt-2 text-sm text-text-muted">Na działce nie wykryto zagłębień terenu (teren płaski albo zbyt mała rozdzielczość modelu).</p>
+    }
+  </details>
+
+  <dl class="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
+    @if (r.water?.soil_water; as sw) {
+      <div class="map-kpi"><dt>Woda dostępna w glebie</dt><dd>{{ sw.available_pct | number: '1.0-0' }}%, dni stresu {{ sw.stress_days_season }}</dd></div>
+    }
+    @if (r.water) {
+      <div class="map-kpi"><dt>Bilans wodny 60 dni</dt><dd>{{ r.water.climate.kbw_60d_mm | number: '1.0-0' }} mm</dd></div>
+    }
+    @if (r.satellite; as s) {
+      <div class="map-kpi">
+        <dt>NDVI / NDMI / VCI</dt>
+        <dd>{{ (s.ndvi | number: '1.2-2') ?? '—' }} / {{ (s.ndmi | number: '1.2-2') ?? '—' }} / {{ (s.vci | number: '1.0-0') ?? '—' }}{{ s.last_scene_date ? ' (' + s.last_scene_date + ')' : '' }}</dd>
+      </div>
+    }
+    @if (r.terrain; as t) {
+      <div class="map-kpi"><dt>Spadek terenu (średni / maks.)</dt><dd>{{ (t.slope_mean_pct | number: '1.0-1') ?? '—' }}% / {{ (t.slope_max_pct | number: '1.0-1') ?? '—' }}%</dd></div>
+      @if (t.tree_cover_buffer_pct != null) {
+        <div class="map-kpi"><dt>Zadrzewienia w strefie 500 m</dt><dd>{{ t.tree_cover_buffer_pct | number: '1.0-0' }}%</dd></div>
+      }
+    }
+    @if (r.hydro?.groundwater?.body?.quantitative_status; as q) {
+      <div class="map-kpi"><dt>Stan wód podziemnych</dt><dd>{{ q }}</dd></div>
+    }
+    @if (r.hydro?.edo?.cdi_meaning; as cdi) {
+      <div class="map-kpi"><dt>Susza wg EDO</dt><dd>{{ cdi }}</dd></div>
+    }
+  </dl>
+
+  <details class="mt-4">
+    <summary class="font-semibold">Obiekty na mapie (lista, {{ objects().length }})</summary>
+    @if (objects().length) {
+      <ul class="mt-2 divide-y divide-border">
+        @for (o of objects(); track o.key) {
+          <li class="flex flex-wrap items-center justify-between gap-2 py-2">
+            <span><strong>{{ o.number ? o.number + '. ' : '' }}{{ o.label }}</strong> — {{ o.lines[0] }}</span>
+            <button type="button" class="link no-print" (click)="showOnMap(o.key)">Pokaż na mapie</button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="mt-2 text-text-muted">Raport nie zawiera obiektów do pokazania poza granicą działki.</p>
+    }
+  </details>
+
+  <details class="mt-4 text-sm">
+    <summary class="font-semibold">Ograniczenia mapy</summary>
+    <ul class="mt-2 list-disc space-y-1 pl-6 text-text-muted">
+      <li>Kształt rowu, cieku i zbiornika pochodzi z obrazu BDOT10k (siatka 2,5–5 m) — to pas szerokości kilku metrów, nie dokładna oś cieku.</li>
+      <li>NDVI ma piksel 10 m; na małych działkach to tylko kilkanaście pikseli.</li>
+      <li>Punkty wód podziemnych są regionalne (do 15 km); pomiar późniejszy niż data analizy jest pomijany.</li>
+      <li>Na płaskiej działce zagłębień może nie być.</li>
+    </ul>
+  </details>
+</section>

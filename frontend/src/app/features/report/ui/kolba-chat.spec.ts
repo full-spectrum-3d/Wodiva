@@ -44,6 +44,10 @@ describe('KolbaChat', () => {
     await settle();
     expect(el.querySelector('[role=log]')?.textContent).toContain('Najpierw zastawka');
     expect(el.textContent).toContain('Źródła:');
+    // identyfikator w tekście odpowiedzi i na liście źródeł to przyciski otwierające modal, nie tekst
+    expect(el.querySelectorAll('[role=log] p.whitespace-pre-line button')).toHaveLength(1);
+    expect(el.querySelector('[role=log] p.whitespace-pre-line')?.textContent).toContain('rowie (E05).');
+    expect([...el.querySelectorAll('[role=log] button')].map((b) => b.textContent?.trim())).toEqual(['E05', 'E05']);
     expect(el.textContent).toContain('Odpowiedź modelu AI');
     expect(el.querySelector('textarea')).toBeTruthy();
   });

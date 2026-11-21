@@ -23,11 +23,22 @@
   --color-text-muted: light-dark(#4d5450, #a8afa9);
   --color-border: light-dark(#d3cec2, #2f3732);
   --color-border-strong: light-dark(#767b74, #7f8780);
-  --color-primary: light-dark(#0d5868, #7cc6d6);
-  --color-primary-hover: light-dark(#09434f, #a3dae6);
-  --color-on-primary: light-dark(#ffffff, #0b1a1e);
-  --color-primary-tint: light-dark(#e2edf0, #15303a);
+  /* Akcent „eRolnik+”: zieleń rolnicza #669900 przyciemniona do AA (biały na #3A5A00 = 7.95:1) */
+  --color-primary: light-dark(#3a5a00, #a9d45c);
+  --color-primary-hover: light-dark(#2c4500, #c2e287);
+  --color-on-primary: light-dark(#ffffff, #161b12);
+  --color-primary-tint: light-dark(#eff3e2, #22301a);
   --color-focus: var(--color-primary);
+
+  /* Żółty pasek komunikatów z eRolnik (dane przykładowe, ograniczenia): tekst 13.7:1 */
+  --color-notice: #ffea76;
+  --color-on-notice: #1b1f1d;
+
+  /* Nagłówek raportu: jednolite tło (ochra pola) + ciemne szkło pod tekstem i kaflami */
+  --color-hero: #b8862f;
+  --color-glass: rgb(14 18 10 / 0.62);
+  --color-glass-strong: rgb(14 17 10 / 0.8);
+  --color-on-glass: #ffffff;
 
   /* Skala stanu wody / ryzyka suszy */
   --color-level-good-text: light-dark(#1d5a85, #8ec3ea);
@@ -58,6 +69,8 @@
   --font-sans:
     'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  /* Nagłówki i kafle: geometryczny krój w duchu Century Gothic z eRolnik (latin-ext) */
+  --font-display: 'Urbanist', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
   --text-*: initial;
   --text-xs: 0.875rem;
   --text-sm: 1rem;
@@ -230,6 +243,7 @@
   h2,
   h3,
   h4 {
+    font-family: var(--font-display);
     font-weight: var(--weight-bold);
     line-height: var(--leading-tight);
     text-wrap: balance;
@@ -466,8 +480,9 @@
     width: 2.5rem;
     height: 2.5rem;
     border-radius: var(--radius-sm);
-    background: var(--color-surface-sunken);
-    font-family: var(--font-mono);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-family: var(--font-display);
   }
 
   .report-section {
@@ -495,7 +510,7 @@
     }
   }
 
-  /* Panel od dołu na telefonie (DESIGN.md §6.4) */
+  /* Kolba: panel od dołu na telefonie, od ≥ 64rem panel z prawej (DESIGN.md §6.4) */
   .kolba-dialog {
     margin: auto auto 0;
     width: 100%;
@@ -509,8 +524,354 @@
     box-shadow: var(--shadow-overlay);
   }
 
-  .kolba-dialog::backdrop {
+  @media (width >= 64rem) {
+    .kolba-dialog {
+      margin: 0 0 0 auto;
+      width: 28rem;
+      height: 100dvh;
+      max-height: none;
+      border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    }
+  }
+
+  .kolba-dialog::backdrop,
+  .evidence-dialog::backdrop {
     background: rgb(0 0 0 / 0.4);
+  }
+
+  /* Modal źródła: środek ekranu, nad dialogiem Kolby (kolejny showModal() = wyżej w top layer) */
+  .evidence-dialog {
+    margin: auto;
+    width: min(32rem, calc(100% - 2 * var(--gutter)));
+    max-height: 85dvh;
+    padding: var(--space-4);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: var(--border-thin) solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  /* Żółty pasek komunikatów (eRolnik): dane przykładowe, ograniczenia */
+  .notice-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    max-width: none;
+    padding: var(--space-3) var(--gutter);
+    background: var(--color-notice);
+    color: var(--color-on-notice);
+    font-weight: var(--weight-bold);
+  }
+
+  /* Nagłówek raportu „eRolnik+”: jednolite tło, tekst zawsze na ciemnym szkle */
+  .report-hero {
+    color: var(--color-on-glass);
+    background: var(--color-hero);
+  }
+
+  .report-hero__inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-block: var(--space-5);
+  }
+
+  .glass-chip {
+    align-self: flex-start;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-glass);
+    backdrop-filter: blur(6px);
+  }
+
+  .glass-plate {
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-glass-strong);
+    backdrop-filter: blur(8px);
+  }
+
+  @media (width >= 64rem) {
+    .report-hero__inner {
+      padding-block: var(--space-6);
+    }
+
+    .glass-plate {
+      padding: var(--space-5) var(--space-6);
+    }
+  }
+
+  /* Kafle-zakładki 3×2 (≥ 64rem: 6 w rzędzie), białe ikony liniowe na ciemnym szkle */
+  .report-tablist {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  @media (width >= 64rem) {
+    .report-tablist {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  .report-tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 6rem;
+    padding: var(--space-3) var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--color-glass);
+    backdrop-filter: blur(6px);
+    color: var(--color-on-glass);
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: var(--weight-bold);
+    line-height: 1.15;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-align: center;
+    hyphens: manual;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+
+  .report-tab__num {
+    position: absolute;
+    inset-block-start: var(--space-1);
+    inset-inline-start: var(--space-2);
+    font-size: var(--text-xs);
+    letter-spacing: 0;
+  }
+
+  .report-tab__icon {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  /* Wybrany: zieleń + żółta listwa (kształt, nie tylko kolor) */
+  .report-tab[aria-selected='true'] {
+    background: #3a5a00;
+    box-shadow: inset 0 -4px 0 var(--color-notice);
+  }
+
+  /* Fokus na ciemnym szkle: żółty obrys (5.4:1), zielony zlewałby się z tłem */
+  .report-tab:focus-visible {
+    outline: 3px solid var(--color-notice);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) {
+    .report-tab:not([aria-selected='true']):hover {
+      background: var(--color-glass-strong);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .report-tab[aria-selected='true'] {
+      outline: 3px solid CanvasText;
+    }
+  }
+
+  @media print {
+    .report-hero {
+      color: var(--color-text);
+      background: none;
+    }
+
+    .glass-plate,
+    .glass-chip {
+      padding: 0;
+      background: none;
+    }
+  }
+
+  /* Mapa działki (Leaflet) — kolory i kształty ze specyfikacji mapy */
+  .map-frame {
+    position: relative;
+    height: 60svh;
+    min-height: 20rem;
+    overflow: hidden;
+    border: var(--border-thin) solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  @media (width >= 64rem) {
+    .map-frame {
+      height: 28rem;
+    }
+  }
+
+  .map-frame:fullscreen {
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .map-canvas {
+    width: 100%;
+    height: 100%;
+    background: var(--color-surface-sunken);
+  }
+
+  .map-ndvi-bar {
+    position: absolute;
+    z-index: 1000;
+    inset-inline-start: var(--space-2);
+    inset-block-end: var(--space-6);
+    width: min(16rem, calc(100% - 2 * var(--space-2)));
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .map-ndvi {
+    image-rendering: pixelated;
+  }
+
+  .map-pin span {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #2e7d32;
+    color: #fff;
+    font: 700 14px/1 var(--font-display);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  }
+
+  .map-well {
+    background: #6a1b9a;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+
+  .map-arrow span {
+    display: block;
+    color: #00acc1;
+    font-size: 18px;
+    line-height: 18px;
+    text-shadow: 0 0 2px #fff;
+  }
+
+  .map-pin.is-highlighted,
+  .map-well.is-highlighted {
+    animation: map-pulse 0.6s ease-in-out 4 alternate;
+  }
+
+  @keyframes map-pulse {
+    to {
+      transform: scale(1.35);
+    }
+  }
+
+  .leaflet-container {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+  }
+
+  /* Reset `svg, img { max-width: 100% }` ściskał SVG własnych paneli Leafleta (granica działki) do 0 px;
+     leaflet.css zdejmuje to ograniczenie tylko dla standardowego panelu nakładek. */
+  .leaflet-container .leaflet-pane svg,
+  .leaflet-container .leaflet-pane img {
+    max-width: none;
+    max-height: none;
+  }
+
+  .leaflet-popup-content p {
+    margin: 0 0 var(--space-1);
+  }
+
+  .map-popup__title {
+    font-family: var(--font-display);
+    font-weight: var(--weight-bold);
+  }
+
+  .map-kpi {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-sunken);
+  }
+
+  .map-kpi dt {
+    color: var(--color-text-muted);
+  }
+
+  .map-kpi dd {
+    font-weight: var(--weight-semibold);
+  }
+
+  /* Legenda: każdy obiekt ma inny kształt lub wzór linii (czytelna bez rozróżniania kolorów) */
+  .lg {
+    flex: none;
+    width: 1.75rem;
+    height: 1rem;
+  }
+
+  .lg-parcel {
+    border: 3px solid #ffd400;
+    outline: 2px solid #1b1f1d;
+  }
+
+  .lg-zone {
+    border-top: 3px dotted #6b6f68;
+    height: 0;
+  }
+
+  .lg-zaglebienie {
+    background: rgb(30 136 229 / 0.55);
+    border: 1px solid #0d47a1;
+  }
+
+  .lg-splyw {
+    border-top: 3px dashed #00acc1;
+    height: 0;
+  }
+
+  .lg-rekomendacja {
+    width: 1rem;
+    border-radius: 50%;
+    background: #2e7d32;
+  }
+
+  .lg-row,
+  .lg-ciek {
+    border: 2px solid #0d47a1;
+  }
+
+  .lg-zbiornik {
+    border: 2px solid #0d47a1;
+    background: rgb(13 71 161 / 0.3);
+  }
+
+  .lg-studnia {
+    width: 1rem;
+    background: #6a1b9a;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+
+  .print-only {
+    display: none;
+  }
+
+  @media print {
+    .print-only {
+      display: block;
+    }
+  }
+
+  @media print {
+    .report-panel[hidden] {
+      display: block !important;
+    }
   }
 
   .crop-tile {

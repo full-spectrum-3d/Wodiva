@@ -1,0 +1,95 @@
+@let r = report();
+<div class="report-section">
+  <h2 id="step-1" class="step-legend"><span class="step-num" aria-hidden="true">1</span> Ocena stanu wody</h2>
+  @if (r.water; as w) {
+    @for (note of notes(); track $index) {
+      <p class="mt-4 border-l-4 bg-surface-sunken p-3" [class]="note.severity === 'krytyczne' ? levelClass.high.edge : levelClass.watch.edge">
+        {{ note.message }}
+      </p>
+    }
+    <!-- Nowe raporty mają ocenę w nagłówku strony (Report.summary); tu tylko dla starszych, z /summary -->
+    @if (!r.summary) {
+      @if (summary(); as s) {
+        <p class="mt-4 text-xl leading-tight font-bold text-balance md:text-2xl">{{ s.headline }}</p>
+        <div class="mt-3"><app-level-badge [level]="level()" /></div>
+      } @else if (summaryResource.isLoading()) {
+        <p class="mt-4 text-text-muted" role="status">Wczytuję ocenę ryzyka…</p>
+      } @else if (summaryResource.error()) {
+        <div class="mt-4 border-l-4 border-level-high-fill bg-level-high-tint p-3" role="alert">
+          <p class="text-level-high-text">Nie udało się wczytać oceny ryzyka. Pozostałe dane raportu są poniżej.</p>
+          <button type="button" class="btn-secondary mt-2" (click)="summaryResource.reload()">Spróbuj ponownie</button>
+        </div>
+      }
+    }
+
+    @if (soilWater(); as sw) {
+      <div class="mt-6">
+        <app-water-gauge [availablePct]="sw.available_pct" [percentile]="sw.percentile_10y" />
+      </div>
+    } @else {
+      <p class="mt-4 text-text-muted">Poza sezonem wegetacji uprawy nie liczymy zapasu wody w glebie.</p>
+    }
+
+
+    <dl class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div class="rounded-md bg-surface-sunken p-3">
+        <dt class="text-sm text-text-muted">Bilans wodny 60 dni</dt>
+        <dd class="mt-1 text-lg font-bold num">{{ w.climate.kbw_60d_mm | number: '1.0-0' }} mm</dd>
+      </div>
+      <div class="rounded-md bg-surface-sunken p-3">
+        <dt class="text-sm text-text-muted">Opad 30 dni</dt>
+        <dd class="mt-1 text-lg font-bold num">
+          {{ w.climate.precip_30d_mm | number: '1.0-0' }} mm
+          @if (w.climate.precip_30d_norm_mm != null) {
+            <span class="block text-sm font-normal text-text-muted">norma {{ w.climate.precip_30d_norm_mm | number: '1.0-0' }} mm</span>
+          }
+        </dd>
+      </div>
+      <div class="rounded-md bg-surface-sunken p-3">
+        <dt class="text-sm text-text-muted">Dni bez opadu</dt>
+        <dd class="mt-1 text-lg font-bold num">{{ w.climate.dry_spell_current_days }}</dd>
+      </div>
+      @if (soilWater(); as sw) {
+        <div class="rounded-md bg-surface-sunken p-3">
+          <dt class="text-sm text-text-muted">Dni stresu w sezonie</dt>
+          <dd class="mt-1 text-lg font-bold num">{{ sw.stress_days_season }}</dd>
+        </div>
+      }
+    </dl>
+
+    @if (w.climate.kbw_threshold_mm != null && w.climate.kbw_period_mm != null) {
+      <p class="mt-4 border-l-4 bg-surface-sunken p-3" [class]="w.climate.kbw_drought ? levelClass.high.edge : levelClass.good.edge">
+        <strong>{{ w.climate.kbw_drought ? 'Susza rolnicza wg KBW' : 'Brak suszy rolniczej wg KBW' }}</strong>
+        — bilans {{ w.climate.kbw_period_label ?? 'okresu' }}: <span class="num">{{ w.climate.kbw_period_mm | number: '1.0-0' }} mm</span>,
+        próg dla tej uprawy i gleby: <span class="num">{{ w.climate.kbw_threshold_mm | number: '1.0-0' }} mm</span>
+        (metoda IUNG, Dz.U. 2019 poz. 739).
+      </p>
+    }
+
+    @if (summary()?.findings?.length) {
+      <ul class="mt-5 list-disc space-y-1 pl-6">
+        @for (f of summary()!.findings; track f) {
+          <li>{{ f }}</li>
+        }
+      </ul>
+    }
+
+    <div class="mt-8">
+      <app-risk-calendar [calendar]="w.climate.risk_calendar" [years]="w.climate.years_analyzed.length" />
+    </div>
+
+    @if (waterConfidence(); as c) {
+      <p class="mt-5 text-sm">Pewność: {{ c.level }} — {{ c.reason }}</p>
+    }
+  } @else {
+    <div class="mt-4"><app-level-badge level="unknown" /></div>
+    <p class="mt-3">
+      Nie udało się ocenić stanu wody na tej działce, więc raport nie podaje zaleceń — najpierw ocena, potem działania.
+    </p>
+    @for (note of r.limitations; track $index) {
+      @if (note.severity !== 'info') {
+        <p class="mt-2 text-text-muted">{{ note.message }}</p>
+      }
+    }
+  }
+</div>
