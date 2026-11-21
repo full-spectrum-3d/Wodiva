@@ -1,0 +1,203 @@
+rules:
+  - key: RET_DEPRESSION
+    category: retencja
+    priority: 1
+    when:
+      all:
+        - {field: depressions_in_parcel, op: gt, value: 0}
+    location: depression
+    title: Zatrzymaj wodę w zagłębieniu terenu
+    action: >-
+      W najniższym miejscu działki (zaznaczone na mapie, ok. {largest_depression_area_m2} m², głębokość do {largest_depression_depth_m} m)
+      można okresowo zatrzymywać wodę opadową: zastoisko lub małe oczko śródpolne. Nie zasypuj i nie drenuj tego miejsca.
+    rationale: >-
+      Model terenu ({dem_source}) wskazuje bezodpływowe zagłębienie o pojemności ok. {largest_depression_volume_m3} m³,
+      do którego spływa woda z części działki. Zatrzymanie wody tam, gdzie spadła, to podstawowa zasada retencji.
+    causes: [splyw, krajobraz]
+    evidence: [E04, E05, E17]
+
+  - key: RET_FLOWLINE
+    category: retencja
+    priority: 1
+    when:
+      all:
+        - {field: channel_in_parcel, op: is_true}
+        - {field: runoff_risk, op: in, value: [średnia, wysoka]}
+    location: channel
+    title: Spowolnij spływ na linii spływu
+    action: >-
+      Na linii, którą woda spływa przez działkę (zaznaczona na mapie, ok. {flow_path_length_m} m), załóż pas zadarniony
+      lub pas buforowy w poprzek spływu, a uprawę i siew prowadź w poprzek stoku.
+    rationale: >-
+      Średni spadek {mean_slope_pct}% i skupiony spływ z ok. {channel_area_ha} ha: część opadu odpływa z działki zamiast wsiąkać w glebę.
+    causes: [splyw]
+    evidence: [E05, E12, E16]
+
+  - key: RET_SLOPE
+    category: retencja
+    priority: 2
+    when:
+      all:
+        - {field: runoff_risk, op: eq, value: wysoka}
+        - {field: channel_in_parcel, op: is_false}
+    title: Ogranicz spływ na stoku
+    action: >-
+      Prowadź uprawę w poprzek stoku i utrzymuj miedze lub pasy trawy na dolnej granicy działki.
+    rationale: Średni spadek terenu {mean_slope_pct}% sprzyja spływowi wody po intensywnych opadach.
+    causes: [splyw]
+    evidence: [E05, E12]
+
+  - key: RET_DITCH
+    category: retencja
+    priority: 2
+    when:
+      all:
+        - {field: ditch_distance_m, op: le, value: 150}
+    title: Zastawka na rowie melioracyjnym
+    action: >-
+      Rów melioracyjny jest {ditch_where}. Piętrzenie wody w rowie (zastawka) wiosną i po opadach
+      zatrzyma wodę w rowie i spowolni obniżanie się wody gruntowej w pobliżu.
+    rationale: >-
+      Rowy szybko odprowadzają wodę z pól. Spowolnienie odpływu w rowach to jedna z naturalnych metod retencji.
+      Zastawka jest urządzeniem wodnym: wymaga uzgodnienia z zarządcą rowu (spółka wodna lub Wody Polskie) i zgłoszenia lub pozwolenia wodnoprawnego.
+    causes: [krajobraz, opad]
+    evidence: [E05, E10, E22]
+
+  - key: RET_WATERCOURSE
+    category: retencja
+    priority: 2
+    when:
+      all:
+        - {field: watercourse_distance_m, op: le, value: 300}
+    title: Strefa buforowa przy cieku
+    action: >-
+      Ciek jest {watercourse_where}. Pas trawy lub zadrzewień między polem a ciekiem spowolni odpływ
+      i ograniczy spłukiwanie gleby.
+    rationale: Strefy buforowe przy ciekach zwiększają retencję krajobrazową i chronią wodę przed spływem z pól.
+    causes: [krajobraz, splyw]
+    evidence: [E04, E05]
+
+  - key: RET_WETLAND
+    category: retencja
+    priority: 3
+    when:
+      all:
+        - {field: wetland_distance_m, op: le, value: 500}
+    title: Chroń mokradło w pobliżu
+    action: >-
+      Mokradło jest {wetland_where}. Nie odwadniaj go i nie zaorywuj jego brzegów: magazynuje wodę dla okolicy.
+    rationale: Mokradła i oczka wodne spowalniają obieg wody i zasilają wody gruntowe.
+    causes: [krajobraz]
+    evidence: [E04]
+
+  - key: RET_LANDSCAPE
+    category: retencja
+    priority: 2
+    when:
+      all:
+        - {field: cause_krajobraz, op: is_true}
+    title: Zadrzewienie śródpolne lub oczko wodne
+    action: >-
+      W otoczeniu działki prawie nie ma wód, mokradeł ani zadrzewień. Rozważ żywopłot lub pas drzew na granicy działki
+      (najlepiej w poprzek przeważających wiatrów) albo małe oczko wodne w najniższym miejscu gospodarstwa.
+    rationale: >-
+      Zadrzewienia {tree_cover_pct}% powierzchni w promieniu 500 m, wody {water_area_ha} ha, mokradła {wetland_area_ha} ha.
+      Zadrzewienia ograniczają wiatr i parowanie, a oczka zatrzymują wodę opadową.
+    causes: [krajobraz, parowanie]
+    evidence: [E04, E05, E12]
+
+  - key: AGR_COVER
+    category: agrotechnika
+    priority: 1
+    when:
+      any:
+        - {field: risk_level, op: in, value: [średnia, wysoka]}
+        - {field: cause_gleba, op: is_true}
+        - {field: deficit_share, op: ge, value: 0.3}
+    title: Międzyplon i okrywa gleby
+    action: >-
+      Po zbiorze wysiej międzyplon (ozimy lub wsiewkę), a resztki pożniwne zostaw na polu. Gleba okryta jesienią i zimą
+      mniej paruje i lepiej przyjmuje opady.
+    rationale: Międzyplony i resztki pożniwne zwiększają infiltrację i ograniczają parowanie z gleby.{scenario_mulch}
+    causes: [gleba, parowanie]
+    evidence: [E04, E07, E12, E21]
+    ecoscheme: "Ekoschemat „Rolnictwo węglowe”: międzyplony ozime lub wsiewki śródplonowe (warunki w aktualnym naborze ARiMR)"
+
+  - key: AGR_ORGANIC
+    category: agrotechnika
+    priority: 1
+    when:
+      all:
+        - {field: cause_gleba, op: is_true}
+    title: Zwiększ zawartość próchnicy
+    action: >-
+      Wnoś materię organiczną: obornik, kompost, przyoranie słomy. Więcej próchnicy to więcej wody zatrzymanej w glebie.
+    rationale: Gleba magazynuje ok. {awc_mm} mm wody dostępnej dla roślin; wzrost zawartości próchnicy zwiększa pojemność wodną.{scenario_organic}
+    causes: [gleba]
+    evidence: [E07, E12, E21]
+    ecoscheme: "Ekoschemat „Rolnictwo węglowe”: wymieszanie słomy z glebą, stosowanie obornika (warunki w aktualnym naborze ARiMR)"
+
+  - key: AGR_TILLAGE
+    category: agrotechnika
+    priority: 2
+    when:
+      any:
+        - {field: cause_parowanie, op: is_true}
+        - {field: cause_splyw, op: is_true}
+    title: Uprawa uproszczona i mulcz
+    action: >-
+      Ogranicz orkę i liczbę przejazdów, zostawiaj mulcz z resztek na powierzchni. Każde odwrócenie gleby w suchym okresie to utrata wody.
+    rationale: Mniejsza ingerencja w glebę zmniejsza parowanie i poprawia wsiąkanie opadów.{scenario_runoff}
+    causes: [parowanie, splyw]
+    evidence: [E04, E12, E21]
+    ecoscheme: "Ekoschemat „Rolnictwo węglowe”: uproszczone systemy uprawy (warunki w aktualnym naborze ARiMR)"
+
+  - key: AGR_CONTOUR
+    category: agrotechnika
+    priority: 2
+    when:
+      all:
+        - {field: runoff_risk, op: in, value: [średnia, wysoka]}
+    title: Uprawa w poprzek stoku
+    action: Orkę, siew i przejazdy prowadź w poprzek spadku terenu, żeby bruzdy zatrzymywały wodę zamiast ją odprowadzać.
+    rationale: Średni spadek terenu na działce to {mean_slope_pct}%.
+    causes: [splyw]
+    evidence: [E05, E12]
+
+  - key: AGR_MONITOR
+    category: agrotechnika
+    priority: 3
+    when:
+      all:
+        - {field: risk_months_label, op: exists}
+    title: Monitoruj uprawę w okresie ryzyka
+    action: Największe ryzyko niedoboru wody na tej działce występuje w miesiącach {risk_months_label}. W tym czasie sprawdzaj stan roślin i wilgotność gleby (np. łopatą lub sondą) co tydzień.
+    rationale: Kalendarz ryzyka wyznaczony z bilansu wodnego działki za ostatnie 10 lat ({deficit_seasons} z {seasons_analyzed} sezonów z niedoborem).
+    causes: [opad]
+    evidence: [E02, E12]
+
+  - key: AGR_VARIETY
+    category: agrotechnika
+    priority: 3
+    when:
+      all:
+        - {field: deficit_share, op: ge, value: 0.4}
+    title: Odmiany i termin siewu odporniejsze na suszę
+    action: >-
+      Przy kolejnym siewie wybieraj odmiany o większej tolerancji na suszę (lista odmian zalecanych w województwie)
+      i termin siewu pozwalający wykorzystać zimowy zapas wody.
+    rationale: Niedobór wody wystąpił w {deficit_seasons} z {seasons_analyzed} ostatnich sezonów na tej działce.
+    causes: [opad]
+    evidence: [E12]
+
+  - key: AGR_KEEP
+    category: agrotechnika
+    priority: 3
+    when:
+      all:
+        - {field: risk_level, op: eq, value: niska}
+    title: Utrzymaj obecne praktyki
+    action: Obecnie nie ma oznak niedoboru wody. Utrzymuj okrywę gleby i resztki pożniwne, żeby zachować zapas wody na okres ryzyka.
+    rationale: Bilans wodny i wskaźniki satelitarne nie pokazują niedoboru w dacie analizy.
+    causes: []
+    evidence: [E12]

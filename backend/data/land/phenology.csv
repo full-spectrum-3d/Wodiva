@@ -1,0 +1,15 @@
+crop,stages,ndvi_peak_typical,source
+pszenica_ozima,1:dormancy;75:vegetative;130:peak;175:ripening;210:after_harvest;265:emergence;295:vegetative;335:dormancy,0.82,E09;E15
+pszenzyto_ozime,1:dormancy;75:vegetative;130:peak;175:ripening;210:after_harvest;265:emergence;295:vegetative;335:dormancy,0.82,E09;E15
+zyto,1:dormancy;75:vegetative;125:peak;170:ripening;205:after_harvest;260:emergence;290:vegetative;335:dormancy,0.80,E09;E15
+jeczmien_ozimy,1:dormancy;75:vegetative;120:peak;165:ripening;195:after_harvest;255:emergence;285:vegetative;330:dormancy,0.80,E09;E15
+jeczmien_jary,1:before_sowing;95:emergence;110:vegetative;150:peak;180:ripening;210:after_harvest,0.80,E09;E15
+pszenica_jara,1:before_sowing;90:emergence;105:vegetative;150:peak;185:ripening;215:after_harvest,0.80,E09;E15
+kukurydza_ziarno,1:before_sowing;115:emergence;135:vegetative;185:peak;245:ripening;290:after_harvest,0.85,E09;E15
+kukurydza_kiszonka,1:before_sowing;115:emergence;135:vegetative;185:peak;235:ripening;255:after_harvest,0.85,E09;E15
+rzepak_ozimy,1:dormancy;70:vegetative;110:peak;150:ripening;200:after_harvest;235:emergence;250:vegetative;320:dormancy,0.85,E09;E15
+ziemniak,1:before_sowing;110:emergence;140:vegetative;170:peak;220:ripening;255:after_harvest,0.80,E09;E15
+burak_cukrowy,1:before_sowing;100:emergence;125:vegetative;170:peak;260:ripening;290:after_harvest,0.85,E09;E15
+uzytki_zielone,1:dormancy;90:vegetative;120:peak;270:vegetative;305:dormancy,0.75,E09;E15
+straczkowe,1:before_sowing;100:emergence;115:vegetative;155:peak;195:ripening;220:after_harvest,0.80,E09;E15
+warzywa,1:before_sowing;110:emergence;135:vegetative;165:peak;230:ripening;260:after_harvest,0.75,E09;E15
