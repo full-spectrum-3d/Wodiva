@@ -63,3 +63,17 @@ def test_requests_shape(tmp_path):
     jobs = jobs_for(c[0], tmp_path)
     assert {j[0] for j in jobs} == {"reanalysis-era5-land"}
     assert {j[2].name for j in jobs} == {f"hourly_{n}_2024_11-12.nc" for n in ("accum", "wind", "temp", "humid")}
+
+
+def test_assemble_by_chunks_keeps_year_boundary(tmp_path):
+    from scripts.era5_common import Chunk, assemble
+
+    for start, tag in (("2023-12-27", "2023_12-12"), ("2024-01-01", "2024_01-01")):
+        accum, wind, temp, humid = _inputs(start, 5)
+        for name, ds in (("accum", accum), ("wind", wind), ("temp", temp), ("humid", humid)):
+            ds.rename({"time": "valid_time"}).to_netcdf(tmp_path / f"hourly_{name}_{tag}.nc")
+    ds = assemble(tmp_path, [Chunk(2023, (12,)), Chunk(2024, (1,))])
+    times = pd.to_datetime(ds.time.values)
+    assert times.is_unique and times.is_monotonic_increasing
+    assert pd.Timestamp("2023-12-31") in times
+    assert float(ds.sel(time="2023-12-31").precip_mm.isel(latitude=0, longitude=0)) == pytest.approx(4.0)

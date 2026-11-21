@@ -19,3 +19,4 @@ PODZIAL_PRACY.md
 *.zip
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+.vscode/

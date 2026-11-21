@@ -1,3 +1,4 @@
+import gc
 import logging
 import shutil
 import zipfile
@@ -156,13 +157,38 @@ def to_daily(accum: xr.Dataset, wind: xr.Dataset, temp: xr.Dataset, humid: xr.Da
     return ds.astype("float32").sortby("time")
 
 
+def _chunk_path(workdir: Path, name: str, chunk: Chunk) -> Path:
+    return workdir / f"hourly_{name}_{chunk.tag}.nc"
+
+
+def assemble_chunk(workdir: Path, chunk: Chunk, next_chunk: Chunk | None) -> xr.Dataset:
+    parts = {name: open_any(_chunk_path(workdir, name, chunk)) for name in HOURLY_REQUESTS}
+    accum = parts["accum"]
+    extra = None
+    if next_chunk is not None and _chunk_path(workdir, "accum", next_chunk).exists():
+        extra = open_any(_chunk_path(workdir, "accum", next_chunk))
+        accum = xr.concat([accum, extra.isel(time=[0])], dim="time").drop_duplicates("time")
+    daily = to_daily(accum, parts["wind"], parts["temp"], parts["humid"]).load()
+    for ds in [*parts.values(), extra]:
+        if ds is not None:
+            ds.close()
+    log.info("złożono %s (%d dni)", chunk.tag, daily.sizes["time"])
+    return daily
+
+
 def assemble(workdir: Path, chunk_list: list[Chunk]) -> xr.Dataset:
-    parts: dict[str, list[xr.Dataset]] = {k: [] for k in HOURLY_REQUESTS}
-    for chunk in chunk_list:
-        for name in HOURLY_REQUESTS:
-            parts[name].append(open_any(workdir / f"hourly_{name}_{chunk.tag}.nc"))
-    joined = {k: xr.concat(v, dim="time").drop_duplicates("time") for k, v in parts.items()}
-    return to_daily(joined["accum"], joined["wind"], joined["temp"], joined["humid"])
+    paths = []
+    for i, chunk in enumerate(chunk_list):
+        nxt = chunk_list[i + 1] if i + 1 < len(chunk_list) else None
+        daily = assemble_chunk(workdir, chunk, nxt)
+        path = workdir / f"day_{chunk.tag}.nc"
+        daily.to_netcdf(path)
+        daily.close()
+        del daily
+        gc.collect()
+        paths.append(path)
+    ds = xr.open_mfdataset(paths, combine="nested", concat_dim="time", chunks={"time": 366})
+    return ds.drop_duplicates("time").sortby("time")
 
 
 def write_cube(ds: xr.Dataset, out: Path, append: bool = False) -> None:
