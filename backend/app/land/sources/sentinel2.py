@@ -8,6 +8,7 @@ from rasterio.windows import Window
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
+from app.land import overlay
 from app.land.cache import DAY, cache
 from app.land.engine.satellite_indices import coverage_weights, normalized_difference, summarize, valid_mask
 from app.land.engine.sharpen import sharpen_band
@@ -150,10 +151,25 @@ async def observe(
             clear_fraction=round(stats["clear_fraction"], 2),
             effective_pixels=round(stats["effective_pixels"], 1),
         )
+    if observation is not None and not light:
+        try:
+            ndvi = overlay.ndvi_overlay(indices["ndvi"], grid.transform, epsg, geom)
+        except Exception:
+            ndvi = None
+        if ndvi is not None:
+            cache.set(_overlay_key(item["id"], geom_2180), overlay.to_cache(ndvi), 365 * DAY)
     cache.set(
         key, {"obs": observation.model_dump(mode="json") if observation else None, "sharpened": sharpened}, 365 * DAY
     )
     return observation, sharpened
+
+
+def _overlay_key(scene_id: str, geom_2180: BaseGeometry) -> str:
+    return cache.make_key("s2ndvi", scene_id, geom_2180.wkt)
+
+
+def ndvi_overlay_for(scene_id: str, geom_2180: BaseGeometry) -> dict | None:
+    return overlay.from_cache(cache.get(_overlay_key(scene_id, geom_2180)))
 
 
 def _round(value: float | None) -> float | None:

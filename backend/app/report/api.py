@@ -58,6 +58,15 @@ async def report_map(report_id: str) -> Response:
     return Response(png, media_type="image/png")
 
 
+@router.get("/report/{report_id}/ndvi.png")
+async def report_ndvi(report_id: str) -> Response:
+    load(report_id)
+    png = store.load_overlay(report_id, "ndvi")
+    if png is None:
+        raise HTTPException(404, "Brak nakładki NDVI dla tego raportu.")
+    return Response(png, media_type="image/png")
+
+
 @router.get("/report/{report_id}/summary", response_model=ReportSummary)
 async def report_summary(report_id: str) -> ReportSummary:
     return summarize(load(report_id))

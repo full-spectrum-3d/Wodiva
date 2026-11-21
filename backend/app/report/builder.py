@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from app.core.contracts import ReportInput
 from app.core.schemas import DataSource, Report
-from app.land import service
+from app.land import overlay, service
 from app.land.geo import parcel_geometry
 from app.report import maps, store
 from app.report.summary import risk
@@ -59,5 +59,13 @@ def persist(report: Report) -> Report:
         map_png = maps.render(parcel_geometry(report.parcel.geometry_wkt_2180), artifacts)
     except Exception:
         log.exception("map rendering failed")
+    if artifacts is not None and artifacts.ndvi is not None and report.satellite is not None:
+        store.save_overlay(report.id, "ndvi", artifacts.ndvi["png"])
+        report.satellite.details["ndvi_overlay"] = {
+            "url": f"/api/report/{report.id}/ndvi.png",
+            "bounds": artifacts.ndvi["bounds"],
+            "date": report.satellite.last_scene_date.isoformat() if report.satellite.last_scene_date else None,
+            **overlay.legend(),
+        }
     store.save(report, map_png)
     return report

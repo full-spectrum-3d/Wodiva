@@ -13,6 +13,7 @@ def _db() -> sqlite3.Connection:
     if _conn is None:
         _conn = sqlite3.connect(var_dir() / "reports.sqlite", check_same_thread=False)
         _conn.execute("CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, created TEXT, body TEXT, map BLOB)")
+        _conn.execute("CREATE TABLE IF NOT EXISTS overlays (id TEXT, name TEXT, png BLOB, PRIMARY KEY (id, name))")
         _conn.commit()
     return _conn
 
@@ -35,4 +36,16 @@ def load(report_id: str) -> Report | None:
 def load_map(report_id: str) -> bytes | None:
     with _lock:
         row = _db().execute("SELECT map FROM reports WHERE id=?", (report_id,)).fetchone()
+    return row[0] if row else None
+
+
+def save_overlay(report_id: str, name: str, png: bytes) -> None:
+    with _lock:
+        _db().execute("REPLACE INTO overlays VALUES (?, ?, ?)", (report_id, name, png))
+        _db().commit()
+
+
+def load_overlay(report_id: str, name: str) -> bytes | None:
+    with _lock:
+        row = _db().execute("SELECT png FROM overlays WHERE id=? AND name=?", (report_id, name)).fetchone()
     return row[0] if row else None
