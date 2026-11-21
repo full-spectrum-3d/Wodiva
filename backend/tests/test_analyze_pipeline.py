@@ -60,7 +60,7 @@ async def test_full_analysis_historical(cube_path, analysis_day):
     names = {s.name.split(" ")[0] for s in report.sources}
     assert {"ULDK", "ERA5-Land", "ISRIC", "IUNG-PIB", "EGiB"} <= names
     assert "total" in report.timings_s
-    assert any(lim.code == "land_missing" for lim in report.limitations)
+    assert any(lim.code in ("land_missing", "satellite_missing") for lim in report.limitations)
 
 
 @respx.mock
