@@ -70,6 +70,11 @@ def surface_state(phase: str, ndvi: float | None) -> str:
     return "roślinność"
 
 
+def _retrieve(task: asyncio.Task) -> None:
+    if not task.cancelled():
+        task.exception()
+
+
 async def _satellite(geom, small: bool, crop: str, day: date, deadline: float) -> SatelliteState:
     settings = land_settings()
     geom_wgs84 = reproject(geom, PL_CRS, 4326)
@@ -78,28 +83,33 @@ async def _satellite(geom, small: bool, crop: str, day: date, deadline: float) -
     phase = phenology.phase_on(crop, day)
     label = phenology.PHASE_LABELS[phase]
     season_task = asyncio.create_task(sentinel2.season_points(geom, geom_wgs84, bbox, day, inner))
+    season_task.add_done_callback(_retrieve)
     try:
-        latest, sharpened = await asyncio.wait_for(
-            sentinel2.latest(geom, geom_wgs84, bbox, day, inner), max(deadline - time.monotonic() - 2, 1)
-        )
-    except TimeoutError:
-        latest, sharpened = None, False
-    history = []
-    if latest is not None and phenology.is_interpretable(phase):
-        history = await sentinel2.same_window_history(
-            geom,
-            geom_wgs84,
-            bbox,
-            day,
-            settings.sat_history_years,
-            inner,
-            max(deadline - time.monotonic() - 1, 0.5),
-            settings.sat_history_background,
-        )
-    try:
-        points = await asyncio.wait_for(season_task, max(deadline - time.monotonic() - 0.5, 0.1))
-    except Exception:
-        points = []
+        try:
+            latest, sharpened = await asyncio.wait_for(
+                sentinel2.latest(geom, geom_wgs84, bbox, day, inner), max(deadline - time.monotonic() - 2, 1)
+            )
+        except TimeoutError:
+            latest, sharpened = None, False
+        history = []
+        if latest is not None and phenology.is_interpretable(phase):
+            history = await sentinel2.same_window_history(
+                geom,
+                geom_wgs84,
+                bbox,
+                day,
+                settings.sat_history_years,
+                inner,
+                max(deadline - time.monotonic() - 1, 0.5),
+                settings.sat_history_background,
+            )
+        try:
+            points = await asyncio.wait_for(season_task, max(deadline - time.monotonic() - 0.5, 0.1))
+        except Exception:
+            points = []
+    except BaseException:
+        season_task.cancel()
+        raise
     offset = phenology.phase_offset(crop, [(d.timetuple().tm_yday, v) for d, v in points]) if points else None
     if latest is None:
         return SatelliteState(
