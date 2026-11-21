@@ -1,4 +1,6 @@
 // Odwzorowanie backend/app/core/schemas.py (Report) i app/report/summary.py — tylko pola używane przez UI.
+import type { Geometry } from 'geojson';
+
 import { Parcel } from './wodiva-api.model';
 
 export type SourceStatus = 'ok' | 'brak' | 'częściowo';
@@ -84,7 +86,8 @@ export interface Recommendation {
   evidence_ids: string[];
   eco_scheme: string | null;
   priority: number;
-  location: Record<string, unknown> | null;
+  /** Miejsce zalecenia na mapie: land/models.py GeoFeature (geometria WGS84). */
+  location: { kind: string; geometry: Geometry; properties?: Record<string, unknown> } | null;
 }
 
 export interface IrrigationAdvice {
@@ -107,6 +110,75 @@ export interface Confidence {
   reason: string;
 }
 
+/** Nakładka NDVI z ostatniego bezchmurnego zdjęcia Sentinel-2 (report.satellite.details.ndvi_overlay). */
+export interface NdviOverlay {
+  url: string;
+  bounds: [[number, number], [number, number]];
+  date: string | null;
+  range: [number, number];
+  colors: string[];
+  opacity: number;
+}
+
+export interface SatelliteState {
+  ndvi: number | null;
+  ndmi: number | null;
+  vci: number | null;
+  last_scene_date: string | null;
+  details: { ndvi_overlay?: NdviOverlay } & Record<string, unknown>;
+}
+
+export interface Depression {
+  geometry: Geometry;
+  area_m2?: number;
+  max_depth_m?: number;
+  volume_m3?: number;
+  inside_parcel_share?: number;
+}
+
+export interface FlowLine {
+  geometry: Geometry;
+  length_m?: number;
+  max_contributing_area_ha?: number;
+}
+
+export interface TerrainInfo {
+  slope_mean_pct: number | null;
+  slope_max_pct: number | null;
+  depressions: Depression[];
+  flow_lines: FlowLine[];
+  tree_cover_buffer_pct: number | null;
+}
+
+/** Rów, ciek albo zbiornik z BDOT10k (kształt w promieniu 500 m, punkt najbliżej środka działki). */
+export interface WaterObject {
+  geometry?: Geometry;
+  nearest_point?: { lon: number; lat: number };
+  type?: string;
+  distance_m?: number;
+  width_m?: number;
+  mphp_id?: string;
+}
+
+export interface Well {
+  id?: string;
+  place?: string | null;
+  lon: number | null;
+  lat: number | null;
+  distance_km?: number;
+  water_table_depth_m?: number;
+  measured_on?: string;
+  aquifer?: string | null;
+}
+
+export interface HydroInfo {
+  ditches: WaterObject[];
+  watercourses: WaterObject[];
+  water_bodies: WaterObject[];
+  groundwater: { wells?: Well[]; body?: { quantitative_status?: string | null } & Record<string, unknown> } | null;
+  edo: { date?: string | null; cdi_class?: string | null; cdi_meaning?: string | null } | null;
+}
+
 export interface Report {
   id: string;
   created_at: string;
@@ -114,6 +186,9 @@ export interface Report {
   crop: string;
   parcel: Parcel;
   water: WaterState | null;
+  satellite?: SatelliteState | null;
+  terrain?: TerrainInfo | null;
+  hydro?: HydroInfo | null;
   causes: Cause[];
   recommendations: Recommendation[];
   irrigation: IrrigationAdvice | null;

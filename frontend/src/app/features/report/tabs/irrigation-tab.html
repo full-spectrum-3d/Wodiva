@@ -1,0 +1,41 @@
+@let r = report();
+<div class="report-section" [class.step-disabled]="!r.water">
+  <h2 id="step-5" class="step-legend"><span class="step-num" aria-hidden="true">5</span> Nawadnianie</h2>
+  @if (!r.water) {
+    <p class="mt-3">Bez oceny stanu wody nie podajemy zaleceń nawadniania.</p>
+  } @else if (r.irrigation; as irr) {
+    @for (note of notes(); track $index) {
+      <p class="mt-4 border-l-4 bg-surface-sunken p-3" [class]="levelClass.watch.edge">{{ note.message }}</p>
+    }
+    <div class="mt-4"><app-level-badge [level]="level()" [label]="'Nawadnianie: ' + irr.status" /></div>
+    <p class="mt-3">{{ irr.reason }}</p>
+    @if (irr.status === 'zalecane') {
+      <dl class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
+        @if (irr.first_day) {
+          <div><dt class="text-sm text-text-muted">Pierwszy dzień</dt><dd class="font-bold num">{{ irr.first_day }}</dd></div>
+        }
+        @if (irr.net_dose_mm != null) {
+          <div>
+            <dt class="text-sm text-text-muted">Dawka netto / brutto</dt>
+            <dd class="font-bold num">{{ irr.net_dose_mm | number: '1.0-0' }} / {{ irr.gross_dose_mm | number: '1.0-0' }} mm</dd>
+          </div>
+        }
+        @if (irr.split_into) {
+          <div><dt class="text-sm text-text-muted">Podział</dt><dd class="font-bold num">{{ irr.split_into }} {{ irr.split_into | i18nPlural: doses }}</dd></div>
+        }
+        @if (irr.volume_m3 != null) {
+          <div><dt class="text-sm text-text-muted">Objętość wody</dt><dd class="font-bold num">{{ irr.volume_m3 | number: '1.0-0' }} m³</dd></div>
+        }
+      </dl>
+      @if (irr.forecast_available) {
+        <p class="mt-3 text-sm num">
+          Prognoza 7 dni: opad {{ irr.forecast_precip_7d_mm | number: '1.0-0' }} mm, potrzeby uprawy
+          {{ irr.forecast_etc_7d_mm | number: '1.0-0' }} mm.
+        </p>
+      }
+    }
+    <p class="mt-4 text-sm text-text-muted">{{ irr.legal_note }}</p>
+  } @else {
+    <p class="mt-3 text-text-muted">Raport nie zawiera oceny nawadniania dla tej działki.</p>
+  }
+</div>

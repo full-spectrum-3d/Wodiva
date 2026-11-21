@@ -1,3 +1,5 @@
+import type { Geometry } from 'geojson';
+
 // Odwzorowanie backend/app/core/schemas.py — tylko pola używane przez UI.
 export interface Parcel {
   id: string;
@@ -7,6 +9,8 @@ export interface Parcel {
   number: string | null;
   area_ha: number;
   is_agricultural: boolean | null;
+  /** Granica działki, GeoJSON w WGS84 (EPSG:4326). */
+  geometry_geojson?: Geometry;
 }
 
 export interface ParcelCandidate {

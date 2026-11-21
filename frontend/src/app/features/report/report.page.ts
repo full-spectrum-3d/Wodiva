@@ -1,34 +1,41 @@
-import { DecimalPipe, DOCUMENT, I18nPluralPipe, Location, NgOptimizedImage } from '@angular/common';
-import { httpResource } from '@angular/common/http';
-import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, input, signal, viewChild } from '@angular/core';
+import { DatePipe, DecimalPipe, DOCUMENT, Location } from '@angular/common';
+import { HttpErrorResponse, httpResource } from '@angular/common/http';
+import { afterNextRender, Component, computed, effect, ElementRef, inject, Injector, input, linkedSignal, viewChild } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
-import { Limitation, Recommendation, Report, ReportSummary } from '../../core/report.model';
-import { HttpErrorResponse } from '@angular/common/http';
-
-import { LEVEL_CLASS, levelFromIrrigation, levelFromRisk } from './levels';
-import { LevelBadge } from './ui/level-badge';
-import { RecommendationList } from './ui/recommendation-list';
-import { ReportSources } from './ui/report-sources';
-import { RiskCalendar } from './ui/risk-calendar';
+import { Report } from '../../core/report.model';
+import { AgrotechTab } from './tabs/agrotech-tab';
+import { AssessmentTab } from './tabs/assessment-tab';
+import { CausesTab } from './tabs/causes-tab';
+import { IrrigationTab } from './tabs/irrigation-tab';
+import { panelId, REPORT_TABS, ReportTabId, ReportTabs, tabFromParam, tabId } from './tabs/report-tabs';
+import { RetentionTab } from './tabs/retention-tab';
+import { SourcesTab } from './tabs/sources-tab';
+import { levelFromRisk } from './levels';
+import { ParcelMap } from './map/parcel-map';
 import { KolbaChat } from './ui/kolba-chat';
-import { WaterGauge } from './ui/water-gauge';
+import { LevelBadge } from './ui/level-badge';
 
-/** Sekcje ograniczeń pokazywane przy kroku 1 / kroku 5 (pozostałe są w sekcji „Źródła”). */
-const ASSESSMENT_SECTIONS = ['ocena', 'model wody', 'ocena historyczna', 'tło suszowe', 'meteo', 'gleba'];
+/** Nazwa parametru zapytania z wybraną zakładką, np. ?zakladka=nawadnianie. */
+const TAB_QUERY_PARAM = 'zakladka';
 
 @Component({
   selector: 'app-report-page',
-  imports: [RouterLink, NgOptimizedImage, DecimalPipe, I18nPluralPipe, LevelBadge, WaterGauge, RiskCalendar, RecommendationList, ReportSources, KolbaChat],
+  imports: [
+    RouterLink, DecimalPipe, DatePipe, KolbaChat, LevelBadge, ReportTabs, ParcelMap,
+    AssessmentTab, CausesTab, RetentionTab, AgrotechTab, IrrigationTab, SourcesTab],
   templateUrl: './report.page.html',
 })
 export class ReportPage {
   /** Parametr trasy /raport/:id (withComponentInputBinding). */
   readonly id = input.required<string>();
+  /** Parametr zapytania ?zakladka= (withComponentInputBinding) — wybrana zakładka, przeżywa odświeżenie. */
+  readonly zakladka = input<string>();
 
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
+  private readonly router = inject(Router);
   private readonly title = inject(Title);
   /** Raport przekazany z formularza w stanie nawigacji — oszczędza ponowne pobranie zaraz po analizie. */
   private readonly passed = (inject(Location).getState() as { report?: Report } | null)?.report;
@@ -40,49 +47,19 @@ export class ReportPage {
   protected readonly notFound = computed(() => (this.fetched.error() as HttpErrorResponse | undefined)?.status === 404);
   // value() rzuca, gdy zasób jest w stanie błędu — czytamy tylko przez hasValue().
   protected readonly report = computed(() => this.fromState() ?? (this.fetched.hasValue() ? this.fetched.value() : undefined));
-  /** /summary tylko dla starszych raportów, które nie mają jeszcze Report.summary. */
-  protected readonly summaryResource = httpResource<ReportSummary>(() => {
-    const r = this.report();
-    return r && !r.summary ? `/api/report/${encodeURIComponent(r.id)}/summary` : undefined;
-  });
-  /** Ocena ryzyka (headline, risk_level) liczona wyłącznie w backendzie — frontend jej nie szacuje. */
-  protected readonly summary = computed(
-    () => this.report()?.summary ?? (this.summaryResource.hasValue() ? this.summaryResource.value() : undefined),
-  );
 
-  protected readonly soilWater = computed(() => this.report()?.water?.soil_water ?? null);
-  protected readonly level = computed(() => levelFromRisk(this.summary()?.risk_level));
-  protected readonly hasAssessment = computed(() => !!this.report()?.water);
-  protected readonly retention = computed(() => this.byCategory('retencja'));
-  protected readonly agrotech = computed(() => this.byCategory('agrotechnika'));
-  protected readonly causes = computed(() => [...(this.report()?.causes ?? [])].sort((a, b) => a.rank - b.rank));
-  protected readonly maxContribution = computed(() => Math.max(1, ...this.causes().map((c) => c.contribution_mm ?? 0)));
-  protected readonly waterConfidence = computed(() => this.report()?.confidence.find((c) => c.section === 'ocena wilgotności'));
-  protected readonly assessmentNotes = computed(() => this.notes((l) => ASSESSMENT_SECTIONS.includes(l.section ?? '')));
-  protected readonly irrigationNotes = computed(() => this.notes((l) => l.section === 'nawadnianie'));
-  protected readonly irrigationLevel = computed(() => {
-    const status = this.report()?.irrigation?.status;
-    return status ? levelFromIrrigation(status) : 'unknown';
-  });
-  protected readonly levelClass = LEVEL_CLASS;
-  protected readonly doses = { '=1': 'dawka', '=2': 'dawki', '=3': 'dawki', '=4': 'dawki', other: 'dawek' };
-  protected readonly mapFailed = signal(false);
+  protected readonly tabs = REPORT_TABS;
+  protected readonly level = computed(() => levelFromRisk(this.report()?.summary?.risk_level));
+  protected readonly tabId = tabId;
+  protected readonly panelId = panelId;
+  /** Źródłem prawdy jest URL; linkedSignal pozwala przełączyć zakładkę od razu, bez czekania na nawigację. */
+  protected readonly tab = linkedSignal<ReportTabId>(() => tabFromParam(this.zakladka()));
 
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
   private readonly kolbaDialog = viewChild<ElementRef<HTMLDialogElement>>('kolbaDialog');
 
-  /** ≥ 64rem Kolba siedzi w kolumnie bocznej, niżej w oknie dialogowym (DESIGN.md §6.4). */
-  protected readonly wide = signal(false);
-
   constructor() {
-    const query = this.document.defaultView?.matchMedia?.('(width >= 64rem)');
-    if (query) {
-      this.wide.set(query.matches);
-      const onChange = (e: MediaQueryListEvent) => this.wide.set(e.matches);
-      query.addEventListener('change', onChange);
-      inject(DestroyRef).onDestroy(() => query.removeEventListener('change', onChange));
-    }
-
+    this.title.setTitle('Raport — Wodiva');
     effect(() => {
       const r = this.report();
       if (!r && !this.fetched.error()) return;
@@ -91,20 +68,18 @@ export class ReportPage {
     });
   }
 
-  /** showModal(): fokus w środku, Esc zamyka, po zamknięciu przeglądarka oddaje fokus przyciskowi. */
-  protected openKolba(): void {
+  protected selectTab(id: ReportTabId): void {
+    this.tab.set(id);
+    // replaceUrl: przełączanie zakładek nie zaśmieca historii przeglądarki.
+    void this.router.navigate([], { queryParams: { [TAB_QUERY_PARAM]: id }, queryParamsHandling: 'merge', replaceUrl: true });
+  }
+
+  /** showModal(): fokus w środku, Esc zamyka, po zamknięciu przeglądarka oddaje fokus wyzwalaczowi. */
+  openKolba(): void {
     this.kolbaDialog()?.nativeElement.showModal();
   }
 
   protected print(): void {
     this.document.defaultView?.print();
-  }
-
-  private byCategory(category: Recommendation['category']): Recommendation[] {
-    return this.report()?.recommendations.filter((r) => r.category === category) ?? [];
-  }
-
-  private notes(match: (l: Limitation) => boolean): Limitation[] {
-    return this.report()?.limitations.filter((l) => l.severity !== 'info' && match(l)) ?? [];
   }
 }

@@ -8,7 +8,7 @@ export const routes: Routes = [
   },
   {
     path: 'raport/:id',
-    title: 'Raport — Wodiva',
+    // bez `title`: ustawia go strona (numer działki); tytuł trasy nadpisywałby go przy każdej zmianie ?zakladka=
     loadComponent: () => import('./features/report/report.page').then((m) => m.ReportPage),
   },
   { path: '**', redirectTo: '' },
