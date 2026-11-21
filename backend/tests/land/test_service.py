@@ -122,7 +122,8 @@ def test_assistant_offline(parcel, water, soil, irrigation, land):
     report = _report(parcel, water, soil, irrigation, land)
     assert "główne przyczyny" in kolba.offline_answer(report, "Dlaczego moje pole jest suche?").answer.lower()
     assert kolba.offline_answer(report, "Co zrobić najpierw?").answer.startswith("Na początek")
-    assert "gotowe pytania" in kolba.offline_answer(report, "Jaka pogoda w Paryżu?").answer
+    weather = kolba.offline_answer(report, "Jaka pogoda w Paryżu?")
+    assert weather.mode == "bez AI" and any("imgw.pl" in link.url for link in weather.links)
 
 
 async def test_observe_uses_collect_and_keeps_artifacts(monkeypatch, parcel, land, artifacts):
