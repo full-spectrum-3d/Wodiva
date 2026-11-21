@@ -26,10 +26,10 @@ from app.land.models import (
     TerrainInfo,
 )
 from app.land.settings import land_settings
-from app.land.sources import bdot, dem, edo, sentinel1, sentinel2
+from app.land.sources import bdot, dem, edo, pigpib, sentinel1, sentinel2
 
 SMALL_PARCEL_HA = 0.3
-TERRAIN_BUFFER_M = 300.0
+TERRAIN_BUFFER_M = 150.0
 log = logging.getLogger("wodiva.land")
 
 
@@ -266,7 +266,7 @@ def terrain_info(model: dem.Dem, analysis: terrain.TerrainAnalysis) -> TerrainIn
             )
         )
     return TerrainInfo(
-        dem_source="NMT GUGiK (Geoportal)" if model.source == "nmt" else "Copernicus DEM GLO-30 (zapasowy)",
+        dem_source="NMT GUGiK (usługa wysokości)" if model.source == "nmt" else "Copernicus DEM GLO-30 (zapasowy)",
         resolution_m=model.resolution_m,
         mean_slope_pct=analysis.mean_slope_pct,
         max_slope_pct=analysis.p95_slope_pct,
@@ -283,7 +283,12 @@ def terrain_info(model: dem.Dem, analysis: terrain.TerrainAnalysis) -> TerrainIn
 
 async def _hydro(geom):
     layers = await bdot.load(geom)
-    return layers, bdot.summarize(layers, geom)
+    info = bdot.summarize(layers, geom)
+    try:
+        info.features = await bdot.features(layers, geom, info)
+    except Exception as error:
+        log.warning("bdot10k atrybuty: %s", type(error).__name__)
+    return layers, info
 
 
 async def collect(
@@ -294,12 +299,13 @@ async def collect(
     geom = parcel_geometry(geometry_wkt_2180)
     small = small or area_ha < SMALL_PARCEL_HA
     timings: dict[str, float] = {}
-    sat, rad, ter, hyd, cdi = await asyncio.gather(
+    sat, rad, ter, hyd, cdi, gw = await asyncio.gather(
         _timed("sentinel2", _satellite(geom, small, crop, day, deadline), timings, budget),
         _timed("sentinel1", _radar(geom, day, deadline), timings, budget),
         _timed("teren", _terrain(geom), timings, budget),
         _timed("bdot10k", _hydro(geom), timings, budget),
         _timed("edo", edo.cdi(centroid_lon, centroid_lat, day), timings, budget),
+        _timed("pig-pib", pigpib.groundwater(geom, day), timings, budget),
     )
     result = LandResult(timings_s=timings)
     artifacts = LandArtifacts()
@@ -421,11 +427,11 @@ async def collect(
         artifacts.dem, artifacts.terrain = model, analysis
         result.terrain = terrain_info(model, analysis)
         if model.source == "nmt":
-            sources.append(LandSourceNote(key="nmt", note=f"przeliczony do siatki {model.resolution_m} m"))
+            sources.append(LandSourceNote(key="nmt", note=f"wysokości NMT próbkowane w siatce {model.resolution_m} m"))
         else:
             sources.append(
                 LandSourceNote(
-                    key="nmt", status=DataStatus.missing, note="usługa WCS nie odpowiedziała w limicie czasu"
+                    key="nmt", status=DataStatus.missing, note="usługa wysokości NMT nie odpowiedziała w limicie czasu"
                 )
             )
             sources.append(LandSourceNote(key="copdem", note=f"model zapasowy, siatka {model.resolution_m} m"))
@@ -492,14 +498,49 @@ async def collect(
         sources.append(LandSourceNote(key="bdot10k", status=DataStatus.missing, note=f"błąd: {type(hyd).__name__}"))
     notes.append(
         LandNote(
-            code="groundwater_missing",
+            code="mphp_restricted",
             section="hydrologia",
             text=(
-                "Brak danych o wodach podziemnych: usługi PIG-PIB i Hydroportalu ISOK (MPHP) nie były dostępne "
-                "publicznie w czasie budowy aplikacji; cieki, rowy i wody pochodzą z BDOT10k."
+                "Usługi MPHP w Hydroportalu ISOK (Wody Polskie) wymagają autoryzacji, więc cieki, rowy i zbiorniki "
+                "pochodzą z BDOT10k; dla cieków podajemy identyfikator MPHP zapisany w BDOT10k."
             ),
         )
     )
+    if isinstance(gw, dict) and (gw.get("wells") or gw.get("body") or gw.get("major_aquifer")):
+        if result.hydro is not None:
+            result.hydro.groundwater = gw
+        sources.append(LandSourceNote(key="pigpib", note="monitoring wód podziemnych, JCWPd, GZWP"))
+        notes.append(
+            LandNote(
+                code="groundwater_regional",
+                section="hydrologia",
+                text=(
+                    "Wody podziemne opisane są przez najbliższe punkty monitoringu PIG-PIB (do 15 km) i ocenę "
+                    "jednolitej części wód podziemnych; nie jest to pomiar na działce."
+                ),
+            )
+        )
+        if any("measurement_after_analysis_date" in w for w in gw.get("wells", [])):
+            notes.append(
+                LandNote(
+                    code="groundwater_measurement_later",
+                    section="hydrologia",
+                    text=(
+                        "Usługa PIG-PIB udostępnia tylko ostatni pomiar zwierciadła wody; pomiary późniejsze niż data "
+                        "analizy zostały pominięte."
+                    ),
+                )
+            )
+    else:
+        sources.append(LandSourceNote(key="pigpib", status=DataStatus.missing, note=f"błąd: {type(gw).__name__}"))
+        notes.append(
+            LandNote(
+                code="groundwater_missing",
+                section="hydrologia",
+                severity="ostrzeżenie",
+                text="Usługa PIG-PIB nie odpowiedziała: brak danych o wodach podziemnych w tym raporcie.",
+            )
+        )
 
     if isinstance(cdi, DroughtContext):
         result.drought = cdi

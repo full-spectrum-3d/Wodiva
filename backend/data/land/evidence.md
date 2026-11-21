@@ -24,3 +24,4 @@
 | E20 | Vivone G. i in. (2015). A critical comparison among pansharpening algorithms. IEEE Transactions on Geoscience and Remote Sensing 53(5), 2565–2586 | wyostrzanie pasm 20 m do 10 m |
 | E21 | ARiMR. Ekoschematy Planu Strategicznego WPR 2023–2027: „Rolnictwo węglowe i zarządzanie składnikami odżywczymi” (m.in. międzyplony, uproszczone systemy uprawy, wymieszanie słomy z glebą). Warunki sprawdzić w aktualnym naborze | dopłaty do praktyk retencyjnych |
 | E22 | Ustawa z dnia 20 lipca 2017 r. Prawo wodne | zastawki, urządzenia wodne, pobór wody do nawadniania |
+| E23 | PIG-PIB, Państwowa Służba Hydrogeologiczna. Monitoring wód podziemnych, ocena stanu jednolitych części wód podziemnych (JCWPd) i główne zbiorniki wód podziemnych (GZWP), cbdgmapa.pgi.gov.pl | stan wód podziemnych, ostrożność przy poborze do nawadniania |

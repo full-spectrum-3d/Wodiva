@@ -28,9 +28,9 @@ CATALOG: dict[str, dict[str, str]] = {
         ),
     },
     "nmt": {
-        "name": "Numeryczny Model Terenu (NMT, GRID1)",
-        "provider": "GUGiK, Geoportal.gov.pl (WCS)",
-        "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WCS/DigitalTerrainModelFormatTIFF",
+        "name": "Numeryczny Model Terenu (NMT) – usługa wysokości",
+        "provider": "GUGiK (services.gugik.gov.pl/nmt, GetHByPointList)",
+        "url": "https://services.gugik.gov.pl/nmt/",
         "license": "Dane PZGiK udostępniane bezpłatnie (ustawa Prawo geodezyjne i kartograficzne, art. 40a)",
     },
     "copdem": {
@@ -43,10 +43,19 @@ CATALOG: dict[str, dict[str, str]] = {
         ),
     },
     "bdot10k": {
-        "name": "BDOT10k: cieki, rowy melioracyjne, wody, mokradła, zadrzewienia, budowle hydrotechniczne",
+        "name": (
+            "BDOT10k: cieki (z identyfikatorem MPHP), rowy melioracyjne, wody, mokradła, zadrzewienia, "
+            "budowle hydrotechniczne"
+        ),
         "provider": "GUGiK, Geoportal.gov.pl (WMS kompozycja BDOT10k)",
         "url": "https://mapy.geoportal.gov.pl/wss/service/pub/guest/kompozycja_BDOT10k_WMS/MapServer/WMSServer",
         "license": "Dane PZGiK udostępniane bezpłatnie (ustawa Prawo geodezyjne i kartograficzne, art. 40a)",
+    },
+    "pigpib": {
+        "name": "Monitoring wód podziemnych, JCWPd, GZWP",
+        "provider": "PIG-PIB, Państwowa Służba Hydrogeologiczna (cbdgmapa.pgi.gov.pl)",
+        "url": "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services/hydrogeologia",
+        "license": "Dane PIG-PIB udostępniane publicznie, z podaniem źródła",
     },
     "edo": {
         "name": "Combined Drought Indicator (CDI) v4",

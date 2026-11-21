@@ -103,6 +103,13 @@ def build(
         ctx["tree_cover_pct"] = h.tree_cover_pct_500m
         ctx["water_area_ha"] = h.water_area_ha_500m
         ctx["wetland_area_ha"] = h.wetland_area_ha_500m
+    gw = h.groundwater if h is not None else None
+    if gw:
+        body = gw.get("body") or {}
+        ctx["gw_quantity_poor"] = body.get("quantitative_status") == "słaby" or body.get("risk") == "zagrożona"
+        ctx["jcwpd_code"] = body.get("code")
+        ctx["jcwpd_quantity"] = body.get("quantitative_status")
+        ctx["jcwpd_risk"] = body.get("risk")
     ctx["scenario_mulch"] = scenario_text(water.scenarios, "mulcz")
     ctx["scenario_organic"] = scenario_text(water.scenarios, "prochnica")
     ctx["scenario_runoff"] = scenario_text(water.scenarios, "splyw")

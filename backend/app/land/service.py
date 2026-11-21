@@ -20,6 +20,7 @@ from app.land.models import (
     TerrainInfo,
 )
 from app.land.recommend import agro, context, retention
+from app.land.sources import pigpib
 
 CAUSE_CODES = {"opad": "opad", "parowanie": "upał", "gleba": "gleba", "splyw": "spływ", "krajobraz": "retencja"}
 PHASE_NAMES = {
@@ -83,17 +84,26 @@ def to_core_terrain(terrain: TerrainInfo, hydro: HydroInfo | None) -> CoreTerrai
 
 
 def to_core_hydro(hydro: HydroInfo, drought: DroughtContext | None) -> CoreHydro:
-    def item(distance: float | None, **extra) -> list[dict]:
+    by_group: dict[str, list[dict]] = {}
+    for item in hydro.features:
+        by_group.setdefault(item["group"], []).append({k: v for k, v in item.items() if k != "group"})
+
+    def items(group: str, distance: float | None, **extra) -> list[dict]:
         if distance is None:
             return []
-        return [{"distance_m": distance, "source": "BDOT10k", **extra}]
+        found = by_group.get(group) or [{"distance_m": distance, "source": "BDOT10k"}]
+        return [{**f, **extra} for f in found]
 
     return CoreHydro(
-        watercourses=item(hydro.watercourse_distance_m, in_parcel=hydro.watercourse_in_parcel),
-        water_bodies=item(hydro.water_body_distance_m, area_ha_500m=hydro.water_area_ha_500m),
-        ditches=item(hydro.ditch_distance_m, in_parcel=hydro.ditch_in_parcel),
-        wetlands=item(hydro.wetland_distance_m, area_ha_500m=hydro.wetland_area_ha_500m),
-        groundwater=None,
+        watercourses=items("watercourse", hydro.watercourse_distance_m, in_parcel=hydro.watercourse_in_parcel),
+        water_bodies=items("water", hydro.water_body_distance_m, area_ha_500m=hydro.water_area_ha_500m),
+        ditches=items("ditch", hydro.ditch_distance_m, in_parcel=hydro.ditch_in_parcel),
+        wetlands=[]
+        if hydro.wetland_distance_m is None
+        else [
+            {"distance_m": hydro.wetland_distance_m, "area_ha_500m": hydro.wetland_area_ha_500m, "source": "BDOT10k"}
+        ],
+        groundwater=hydro.groundwater,
         edo=drought.model_dump(mode="json") if drought else None,
         details={"hydro": hydro.model_dump(mode="json")},
     )
@@ -166,7 +176,9 @@ def _recommendation(rec) -> CoreRecommendation:
     )
 
 
-def irrigation_recommendation(irrigation: IrrigationAdvice | None) -> CoreRecommendation | None:
+def irrigation_recommendation(
+    irrigation: IrrigationAdvice | None, groundwater: dict | None = None
+) -> CoreRecommendation | None:
     if irrigation is None or irrigation.status in ("nie dotyczy", "niezalecane"):
         return None
     title = "Nawadnianie zalecane" if irrigation.status == "zalecane" else "Monitoruj potrzebę nawadniania"
@@ -180,6 +192,11 @@ def irrigation_recommendation(irrigation: IrrigationAdvice | None) -> CoreRecomm
         )
     if irrigation.volume_m3:
         parts.append(f"Objętość wody ok. {irrigation.volume_m3:.0f} m³ na działkę.")
+    if pigpib.is_quantity_poor(groundwater):
+        parts.append(
+            "Wody podziemne w tym rejonie mają słaby stan ilościowy lub są zagrożone (PIG-PIB): "
+            "ogranicz pobór z ujęć głębinowych, korzystaj najpierw z retencji."
+        )
     parts.append(irrigation.legal_note)
     return CoreRecommendation(
         category="nawadnianie",
@@ -227,7 +244,7 @@ def interpret(
         level,
     )
     recs = [_recommendation(r) for r in retention.recommend(ctx, result, rec_level) + agro.recommend(ctx, rec_level)]
-    extra = irrigation_recommendation(irrigation)
+    extra = irrigation_recommendation(irrigation, result.hydro.groundwater if result.hydro else None)
     if extra is not None:
         recs.append(extra)
     return LandInterpretation(causes=core_causes, recommendations=recs, confidence=core_confidence)

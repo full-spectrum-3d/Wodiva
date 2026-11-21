@@ -106,6 +106,22 @@ rules:
     causes: [krajobraz, parowanie]
     evidence: [E04, E05, E12]
 
+  - key: RET_GROUNDWATER
+    category: retencja
+    priority: 1
+    when:
+      all:
+        - {field: gw_quantity_poor, op: is_true}
+    title: Zasilaj wody podziemne retencją na działce
+    action: >-
+      Wody podziemne w tym rejonie są w złym stanie ilościowym. Zatrzymuj wodę opadową na działce i w rowach,
+      zanim rozważysz pobór wód podziemnych do nawadniania; każdy nowy pobór uzgadniaj (zgłoszenie lub pozwolenie wodnoprawne).
+    rationale: >-
+      Jednolita część wód podziemnych {jcwpd_code}: stan ilościowy {jcwpd_quantity}, ryzyko {jcwpd_risk} (PIG-PIB).
+      Retencja na działce zasila płytkie wody gruntowe i zmniejsza presję poboru.
+    causes: [krajobraz]
+    evidence: [E04, E06, E22, E23]
+
   - key: AGR_COVER
     category: agrotechnika
     priority: 1

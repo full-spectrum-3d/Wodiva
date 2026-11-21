@@ -101,6 +101,8 @@ class HydroInfo(BaseModel):
     water_pct_parcel: float = 0.0
     hydrotechnical_within_500m: bool = False
     search_radius_m: float = 500.0
+    features: list[dict[str, Any]] = Field(default_factory=list)
+    groundwater: dict[str, Any] | None = None
     status: DataStatus = DataStatus.ok
 
 

@@ -22,6 +22,33 @@ class Assessment:
     findings: list[str] = field(default_factory=list)
 
 
+def groundwater_text(groundwater: dict | None) -> str | None:
+    if not groundwater:
+        return None
+    parts = []
+    body = groundwater.get("body") or {}
+    if body.get("quantitative_status"):
+        parts.append(
+            f"jednolita część wód podziemnych {body.get('code', '')} ma {body['quantitative_status']} stan ilościowy "
+            f"(ocena {body.get('status_year', '')})"
+        )
+    if body.get("risk"):
+        parts.append(f"ryzyko nieosiągnięcia celów: {body['risk']}")
+    wells = [w for w in groundwater.get("wells", []) if "water_table_depth_m" in w]
+    if wells:
+        w = wells[0]
+        parts.append(
+            f"najbliższy punkt monitoringu ({w.get('place', '')}, {w['distance_km']} km): zwierciadło wody "
+            f"{w['water_table_depth_m']} m p.p.t. ({w['measured_on']})"
+        )
+    aquifer = groundwater.get("major_aquifer") or {}
+    if aquifer.get("name"):
+        parts.append(f"działka leży nad GZWP {aquifer.get('number', '')} {aquifer['name']}")
+    if not parts:
+        return None
+    return "Wody podziemne (PIG-PIB): " + "; ".join(parts) + "."
+
+
 def risk_score(water: WaterState, land: LandResult) -> float:
     points = 0.0
     sw = water.soil_water
@@ -103,6 +130,9 @@ def assess(water: WaterState | None, land: LandResult) -> Assessment:
             f"Europejskie Obserwatorium Suszy (CDI, {land.drought.date}): {land.drought.cdi_class} – "
             f"{land.drought.cdi_meaning}."
         )
+    groundwater = groundwater_text(land.hydro.groundwater if land.hydro else None)
+    if groundwater:
+        findings.append(groundwater)
     parts = (land.satellite, land.radar, land.terrain, land.hydro, land.drought)
     status = DataStatus.partial if any(p is None or p.status == DataStatus.missing for p in parts) else DataStatus.ok
     return Assessment(status, level, HEADLINES[level], findings)
