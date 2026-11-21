@@ -185,7 +185,7 @@ Miejsca są zaznaczone na mapie działki.
 **Raport i asystent.**
 
 - Raport w kolejności KOWR, zapisany ze stałym linkiem, z PDF, mapą i podsumowaniem `/api/report/{id}/summary`.
-- Asystent „Kolba” odpowiada na pytania rolnika wyłącznie na podstawie raportu jego działki i rejestru źródeł. Bez klucza API działa w trybie gotowych pytań.
+- Asystent „Kolba” rozmawia z rolnikiem o jego działce. Gotowe pytania są tylko podpowiedzią: można pytać własnymi słowami, także o sprawy ogólne (uprawa, retencja, przepisy, dopłaty). Fakty o działce bierze z raportu, a gdy czegoś nie wie, podaje strony urzędowe (ARiMR, Wody Polskie, IMGW, IUNG, MRiRW, ODR).
 
 ## 3. Architektura
 
@@ -281,8 +281,10 @@ Archiwum Open-Meteo jest wyłącznie zapasem na wypadek braku kostki. Raport pok
 **Sztuczna inteligencja w aplikacji.**
 
 - Asystent „Kolba” korzysta z modelu Claude (Anthropic) przez API. Model ustawia `WODIVA_ASSISTANT_MODEL`, domyślnie `claude-opus-5-5`.
-- Model dostaje tylko JSON raportu działki i rejestr źródeł. Ma polecenie odpowiadać wyłącznie na ich podstawie, podawać identyfikator źródła i nie tworzyć nowych liczb.
-- Bez `ANTHROPIC_API_KEY` asystent działa w trybie gotowych pytań, bez modelu.
+- Model dostaje JSON raportu działki, rejestr źródeł, listę sprawdzonych stron urzędowych i do 12 poprzednich wiadomości rozmowy (`history` w `POST /api/assistant`, pole opcjonalne).
+- Model rozumuje przed odpowiedzią (adaptive thinking, siła `WODIVA_ASSISTANT_EFFORT`, domyślnie `medium`). Liczby o działce przepisuje z raportu i niczego nie przelicza. Wiedzę ogólną oznacza jako ogólną. Gdy sprawa zależy od przepisów, stawek lub decyzji urzędu, odsyła do strony z listy; innych adresów nie podaje.
+- Styl odpowiedzi jest ustawiony w poleceniu systemowym: po polsku, prosto, od razu do rzeczy, bez typowych zwrotów czatbotów.
+- Bez `ANTHROPIC_API_KEY` albo przy awarii API asystent odpowiada z raportu bez modelu: przyczyny, pierwsze kroki, nawadnianie, retencja, woda w glebie, opady, gleba, zdjęcia satelitarne, wody podziemne, pewność, dopłaty i pozwolenia. Na inne pytania podaje pasujące strony urzędowe.
 - Ocena, przyczyny, rekomendacje i nawadnianie są liczone deterministycznie, bez AI. Uczenie maszynowe nie jest używane.
 
 **AI przy tworzeniu.** Zespół korzystał z Claude (Anthropic) jako asystenta przy pisaniu kodu, testów i dokumentacji. Każdą zmianę zespół przeglądał, uruchamiał i sprawdzał testami oraz na prawdziwych działkach; wyniki aplikacji nie pochodzą z modelu. Według warunków Anthropic prawa do treści wygenerowanych przez model przysługują użytkownikowi, więc nie ograniczają przeniesienia praw do rozwiązania na KOWR.
@@ -294,7 +296,7 @@ Archiwum Open-Meteo jest wyłącznie zapasem na wypadek braku kostki. Raport pok
   - płatny plan Open-Meteo (`OPENMETEO_API_KEY`, cena wg cennika dostawcy);
   - kostka ERA5-Land + IMGW, ale bez prognozy;
   - własna instancja Open-Meteo (kod AGPL, uruchamiany jako osobna usługa).
-- **Claude API (asystent):** płatne za użycie. Jedno pytanie to ok. 10 tys. tokenów wejścia i 0,5 tys. tokenów wyjścia, czyli ok. 0,05 USD według cennika `claude-opus-5-5`. Alternatywa bez kosztów: tryb gotowych pytań.
+- **Claude API (asystent):** płatne za użycie. Jedno pytanie to ok. 10 tys. tokenów wejścia i 1–2 tys. tokenów wyjścia razem z rozumowaniem. Rejestr źródeł i raport idą przez pamięć podręczną promptu, więc kolejne pytania o ten sam raport są tańsze. Koszt wg cennika Anthropic dla modelu z `WODIVA_ASSISTANT_MODEL`; tańszy wariant daje mniejszy model lub `WODIVA_ASSISTANT_EFFORT=low`. Alternatywa bez kosztów: tryb bez modelu.
 - **CDS (ERA5):** bezpłatne konto i klucz, zlecenia w kolejce.
 - **Infrastruktura prototypu:** serwer 2 vCPU / 4 GB RAM / 20 GB dysku. Szacunek: ok. 25–90 zł miesięcznie (typowe ceny serwerów VPS w UE).
 
@@ -312,7 +314,7 @@ Archiwum Open-Meteo jest wyłącznie zapasem na wypadek braku kostki. Raport pok
 | ISRIC SoilGrids | gleba | CC BY 4.0 |
 | PIG-PIB (cbdgmapa.pgi.gov.pl) | wody podziemne | dane publiczne, z podaniem źródła |
 | Copernicus EMS – EDO | wskaźnik CDI | bezpłatnie, z podaniem źródła |
-| Claude API (Anthropic) | odpowiedzi asystenta „Kolba” | płatne wg cennika; warunki komercyjne Anthropic; do modelu trafia tylko raport działki (bez danych osobowych) |
+| Claude API (Anthropic) | odpowiedzi asystenta „Kolba” | płatne wg cennika; warunki komercyjne Anthropic; do modelu trafia raport działki i treść rozmowy z asystentem (bez danych osobowych) |
 
 **Zgodność licencji z przeniesieniem praw na KOWR** (regulamin §2 ust. 10 i §5). Kod rozwiązania jest w całości autorstwa zespołu. Wszystkie biblioteki mają licencje permisywne (MIT, BSD, Apache-2.0, PSF), które pozwalają na dowolne użycie, modyfikację i rozpowszechnianie, także komercyjne. Kod Open-Meteo (AGPL) nie jest częścią rozwiązania: korzystamy tylko z jego publicznego API. Dane pochodzą z publicznych źródeł, a ich licencje wymagają jedynie podania źródła, które raport podaje automatycznie.
 
