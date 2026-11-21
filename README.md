@@ -44,7 +44,7 @@ Na tej podstawie podaje rekomendacje w kolejności wymaganej przez KOWR: retencj
 
 | Wymaganie (opis zadania KOWR) | Realizacja w Wodiva |
 | :--- | :--- |
-| 3.2 Aplikacja webowa w przeglądarce, bez instalowania oprogramowania | backend FastAPI + interfejs w przeglądarce `[uzupełnić: link]`; rolnik niczego nie instaluje |
+| 3.2 Aplikacja webowa w przeglądarce, bez instalowania oprogramowania | backend FastAPI + interfejs Angular w przeglądarce `[uzupełnić: link]`; rolnik niczego nie instaluje; `docker compose up` uruchamia całość |
 | 3.3.2 Działka po identyfikatorze lub z mapy, dowolna w Polsce | `GET /api/parcel?id=` lub `?lat=&lon=` (ULDK GUGiK; zapas: eksport EGiB); działki wieloczęściowe, małe i nierolnicze obsłużone z ostrzeżeniem |
 | 3.3.3 Wybór uprawy | 14 upraw (`GET /api/crops`), m.in. pszenica ozima, kukurydza, rzepak, ziemniak, burak, użytki zielone |
 | 3.2.1 / 3.3.4 Ocena stanu wilgotności z danych z ostatnich 10 lat, bieżąca i historyczna | bilans wody w glebie i klimatyczny bilans wodny za 10 lat, percentyl wobec tej samej daty, kalendarz ryzyka, stan roślin wobec 9 poprzednich lat |
@@ -65,7 +65,16 @@ Na tej podstawie podaje rekomendacje w kolejności wymaganej przez KOWR: retencj
 
 ## 1. Uruchomienie
 
-Wymagania: Python 3.12. Na Windows polecenia są takie same, tylko aktywacja środowiska to `.venv\Scripts\Activate.ps1`.
+Najprościej – **Docker** (backend + interfejs):
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+```
+
+Aplikacja: `http://localhost:8080`. API bezpośrednio: `http://localhost:8000` (dokumentacja `/docs`).
+
+**Bez Dockera – backend.** Wymagania: Python 3.12. Na Windows polecenia są takie same, tylko aktywacja środowiska to `.venv\Scripts\Activate.ps1`.
 
 ```bash
 cp .env.example .env
@@ -94,13 +103,24 @@ Z odpowiedzi weź `id` i otwórz:
 
 Raport testowy na danych syntetycznych, bez internetu: `POST /api/analyze?mock=true` z tym samym body.
 
-**Docker** (backend + codzienna aktualizacja kostki ERA5):
+**Bez Dockera – interfejs** (Angular). Wymagania: Node 24.15 lub nowszy (`frontend/.nvmrc`). Backend musi działać na porcie 8000; serwer deweloperski przekazuje do niego `/api` (`frontend/proxy.conf.json`).
 
 ```bash
-cp .env.example .env
-docker compose up --build -d
+cd frontend
+nvm use
+npm ci
+npx ng serve
+```
+
+Aplikacja: `http://localhost:4200`. Build produkcyjny: `npx ng build` (pliki w `frontend/dist/wodiva/browser`), testy: `npx ng test`.
+
+**Docker – codzienna aktualizacja kostki ERA5** (dodatkowa usługa do `docker compose up`):
+
+```bash
 docker compose --profile era5 up -d era5-updater
 ```
+
+W Dockerze interfejs to statyczne pliki na nginx (`frontend/Dockerfile`, `frontend/nginx.conf`). nginx przekazuje `/api` do backendu, więc interfejs i API są pod jednym adresem i nie trzeba ustawiać CORS. Analiza może trwać do ok. 30 s, dlatego limit czasu proxy to 120 s.
 
 **Kostka ERA5-Land** (historia meteo, patrz sekcja 5):
 
@@ -129,6 +149,18 @@ python -m scripts.validate --limit 5
 - `validate` uruchamia analizę na działkach z całej Polski.
 
 ## 2. Funkcjonalności
+
+**Interfejs w przeglądarce.**
+
+- Strona główna to kreator w trzech krokach: działka → data analizy → uprawa. Obok jest mapa na pełną wysokość ekranu (na telefonie tylko w kroku 1).
+- Działkę można wpisać numerem albo kliknąć na mapie. Kliknięta działka dostaje obrys, a jej numer wpisuje się w pole.
+- Mapa startuje w okolicy rolnika (ok. 100 km wokół jego lokalizacji, jeśli ją udostępni; inaczej cała Polska). W ustawieniach mapy można zmienić podkład: mapa podstawowa (OpenStreetMap), ortofotomapa GUGiK albo cieniowany model terenu GUGiK. Od dużego przybliżenia widać granice i numery działek z EGiB.
+- Podczas analizy widać ekran ładowania z etapami. Analiza trwa kilkanaście sekund.
+- Raport ma kafelki-zakładki w kolejności KOWR: ocena, przyczyny, retencja, agrotechnika, nawadnianie, źródła. Zakładka jest w adresie (`?zakladka=`), więc link prowadzi do konkretnej części.
+- Mapa działki w raporcie: granica, strefa 500 m, zagłębienia, linie spływu, rowy, cieki, zbiorniki, punkty wód podziemnych, nakładka NDVI i miejsca rekomendacji. Kliknięcie rekomendacji pokazuje jej miejsce na mapie.
+- Identyfikatory źródeł (E01–E23) w tekście otwierają okno z opisem źródła.
+- Raport można pobrać jako PDF albo wydrukować. W raporcie jest asystent „Kolba”.
+- Dostępność: WCAG 2.1 AA (kontrast, obsługa klawiaturą, czytniki ekranu, ograniczenie animacji), czcionka Atkinson Hyperlegible zaprojektowana dla osób słabowidzących. Układ działa od szerokości telefonu.
 
 **Działka.**
 
@@ -191,7 +223,17 @@ Miejsca są zaznaczone na mapie działki.
 
 ## 3. Architektura
 
-Python 3.12, FastAPI. Backend ma trzy części:
+**Interfejs:** Angular 22 w `frontend/` (komponenty standalone, sygnały, bez zone.js, bez SSR), Tailwind CSS v4 z tokenami z `DESIGN.md`, mapy w Leaflet ładowanym dopiero przy pierwszej mapie. Interfejs nic nie liczy: pobiera raport JSON z `POST /api/analyze` i go wyświetla. Typy danych odwzorowują modele z `backend/app/core/schemas.py`.
+
+```
+frontend/src/app/
+  core/       klient API, typy raportu, okno źródła, wspólne elementy map
+  features/
+    analysis/ kreator (formularz), wybór działki na mapie, ekran ładowania
+    report/   raport: kafelki-zakładki, mapa działki, asystent „Kolba”
+```
+
+**Backend:** Python 3.12, FastAPI. Backend ma trzy części:
 
 - `water/` – działka, meteo, gleba, model wody, nawadnianie;
 - `land/` – satelity, teren, hydrologia, przyczyny, rekomendacje;
@@ -277,8 +319,14 @@ Archiwum Open-Meteo jest wyłącznie zapasem na wypadek braku kostki. Raport pok
 | anthropic (SDK) | MIT |
 | cdsapi | Apache-2.0 |
 | pytest, ruff, respx | MIT / BSD-3-Clause |
+| Angular, RxJS, TypeScript (interfejs) | MIT / MIT / Apache-2.0 |
+| Tailwind CSS | MIT |
+| Leaflet (mapy) | BSD-2-Clause |
+| Vitest, jsdom, Prettier | MIT |
+| Czcionki Urbanist, Atkinson Hyperlegible Next i Mono | SIL Open Font License 1.1 |
+| nginx (obraz Docker interfejsu) | BSD-2-Clause |
 
-Żadna biblioteka nie jest na licencji GPL. Usługi zewnętrzne to wyłącznie źródła danych z sekcji 4 oraz Claude API (asystent).
+Żadna biblioteka nie jest na licencji GPL. Usługi zewnętrzne to źródła danych z sekcji 4, podkłady map w interfejsie (sekcja 7) oraz Claude API (asystent).
 
 **Sztuczna inteligencja w aplikacji.**
 
@@ -316,6 +364,9 @@ Archiwum Open-Meteo jest wyłącznie zapasem na wypadek braku kostki. Raport pok
 | ISRIC SoilGrids | gleba | CC BY 4.0 |
 | PIG-PIB (cbdgmapa.pgi.gov.pl) | wody podziemne | dane publiczne, z podaniem źródła |
 | Copernicus EMS – EDO | wskaźnik CDI | bezpłatnie, z podaniem źródła |
+| Kafelki OpenStreetMap (`tile.openstreetmap.org`) | podkład „Mapa podstawowa” w interfejsie | dane © współtwórcy OpenStreetMap, ODbL (podpis na mapie); serwer kafelków wg Tile Usage Policy OSMF – bez gwarancji dostępności i nie do dużego ruchu. Przy wdrożeniu w KOWR: własny serwer kafelków albo płatny dostawca, zmiana adresu w `frontend/src/app/core/map/leaflet.ts` |
+| WMS GUGiK: ortofotomapa, NMT (cieniowanie), KIEG (granice i numery działek) | podkłady i warstwy map w interfejsie | dane PZGiK, bezpłatne, z podaniem źródła (podpis na mapie) |
+| Google Fonts | czcionki interfejsu | bezpłatne, czcionki na licencji OFL; przeglądarka pobiera je z serwerów Google (adres IP trafia do Google). Przy wdrożeniu w KOWR czcionki można dołączyć do aplikacji i usunąć to połączenie |
 | Claude API (Anthropic) | odpowiedzi asystenta „Kolba” | płatne wg cennika; warunki komercyjne Anthropic; do modelu trafia raport działki i treść rozmowy z asystentem (bez danych osobowych) |
 
 **Zgodność licencji z przeniesieniem praw na KOWR** (regulamin §2 ust. 10 i §5). Kod rozwiązania jest w całości autorstwa zespołu. Wszystkie biblioteki mają licencje permisywne (MIT, BSD, Apache-2.0, PSF), które pozwalają na dowolne użycie, modyfikację i rozpowszechnianie, także komercyjne. Kod Open-Meteo (AGPL) nie jest częścią rozwiązania: korzystamy tylko z jego publicznego API. Dane pochodzą z publicznych źródeł, a ich licencje wymagają jedynie podania źródła, które raport podaje automatycznie.
