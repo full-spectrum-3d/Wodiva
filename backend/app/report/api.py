@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.core.schemas import Report
+from app.land import overlay
 from app.land.settings import data_dir
 from app.report import pdf, store
 from app.report.summary import ReportSummary, summarize
@@ -25,11 +26,7 @@ class EvidenceItem(BaseModel):
 @cache
 def evidence_items() -> dict[str, EvidenceItem]:
     rows = (EVIDENCE_ROW.match(line) for line in (data_dir() / "evidence.md").read_text(encoding="utf-8").splitlines())
-    return {
-        m[1]: EvidenceItem(id=m[1], source=m[2].strip(), purpose=m[3].strip())
-        for m in rows
-        if m
-    }
+    return {m[1]: EvidenceItem(id=m[1], source=m[2].strip(), purpose=m[3].strip()) for m in rows if m}
 
 
 def load(report_id: str) -> Report:
@@ -58,13 +55,23 @@ async def report_map(report_id: str) -> Response:
     return Response(png, media_type="image/png")
 
 
+@router.get("/report/{report_id}/overlay/{name}.png")
+async def report_overlay(report_id: str, name: str) -> Response:
+    load(report_id)
+    png = store.load_overlay(report_id, name) if name in overlay.SPECS else None
+    if png is None:
+        raise HTTPException(404, "Brak tej warstwy dla tego raportu.")
+    return Response(png, media_type="image/png")
+
+
 @router.get("/report/{report_id}/ndvi.png")
 async def report_ndvi(report_id: str) -> Response:
-    load(report_id)
-    png = store.load_overlay(report_id, "ndvi")
-    if png is None:
-        raise HTTPException(404, "Brak nakładki NDVI dla tego raportu.")
-    return Response(png, media_type="image/png")
+    return await report_overlay(report_id, "ndvi")
+
+
+@router.get("/overlays")
+async def overlay_catalog() -> dict[str, dict]:
+    return {name: overlay.legend(name) for name in overlay.SPECS}
 
 
 @router.get("/report/{report_id}/summary", response_model=ReportSummary)

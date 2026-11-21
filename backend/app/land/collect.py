@@ -39,7 +39,7 @@ class LandArtifacts:
     dem: dem.Dem | None = None
     hydro: bdot.HydroLayers | None = None
     radar_history: list[RadarObservation] = field(default_factory=list)
-    ndvi: dict | None = None
+    overlays: dict[str, dict] = field(default_factory=dict)
 
 
 async def _timed(name: str, coro, timings: dict[str, float], timeout: float):
@@ -327,7 +327,7 @@ async def collect(
     if isinstance(sat, SatelliteState):
         result.satellite = sat
         if sat.latest is not None:
-            artifacts.ndvi = sentinel2.ndvi_overlay_for(sat.latest.scene_id, geom)
+            artifacts.overlays.update(sentinel2.overlays_for(sat.latest.scene_id, geom))
         dates = [h.date for h in sat.history] + ([sat.latest.date] if sat.latest else [])
         s2_dates = [h.date for h in sat.history if h.sensor == "Sentinel-2"] + ([sat.latest.date] if sat.latest else [])
         sources.append(

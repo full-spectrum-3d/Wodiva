@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from app.core.contracts import ReportInput
 from app.core.schemas import DataSource, Report
 from app.land import overlay, service
-from app.land.geo import parcel_geometry
+from app.land.geo import PL_CRS, parcel_geometry
 from app.report import maps, store
 from app.report.summary import risk
 
@@ -59,13 +59,44 @@ def persist(report: Report) -> Report:
         map_png = maps.render(parcel_geometry(report.parcel.geometry_wkt_2180), artifacts)
     except Exception:
         log.exception("map rendering failed")
-    if artifacts is not None and artifacts.ndvi is not None and report.satellite is not None:
-        store.save_overlay(report.id, "ndvi", artifacts.ndvi["png"])
-        report.satellite.details["ndvi_overlay"] = {
-            "url": f"/api/report/{report.id}/ndvi.png",
-            "bounds": artifacts.ndvi["bounds"],
-            "date": report.satellite.last_scene_date.isoformat() if report.satellite.last_scene_date else None,
-            **overlay.legend(),
-        }
+    _save_overlays(report, artifacts)
     store.save(report, map_png)
     return report
+
+
+def _terrain_overlays(report: Report, artifacts) -> dict[str, dict]:
+    if artifacts is None or artifacts.terrain is None or artifacts.dem is None:
+        return {}
+    geom = parcel_geometry(report.parcel.geometry_wkt_2180)
+    rasters = {"slope": artifacts.terrain.slope_pct, "twi": artifacts.terrain.twi}
+    found = {}
+    for name, values in rasters.items():
+        try:
+            rendered = overlay.render(name, values, artifacts.dem.transform, PL_CRS, geom)
+        except Exception:
+            log.exception("overlay %s failed", name)
+            rendered = None
+        if rendered is not None:
+            found[name] = rendered
+    return found
+
+
+def _save_overlays(report: Report, artifacts) -> None:
+    rendered = {**(artifacts.overlays if artifacts is not None else {}), **_terrain_overlays(report, artifacts)}
+    satellite, terrain = {}, {}
+    for name, item in rendered.items():
+        store.save_overlay(report.id, name, item["png"])
+        info = {"url": f"/api/report/{report.id}/overlay/{name}.png", "bounds": item["bounds"], **overlay.legend(name)}
+        if name in overlay.SATELLITE:
+            scene = report.satellite.last_scene_date if report.satellite else None
+            info["date"] = scene.isoformat() if scene else None
+            satellite[name] = info
+        else:
+            info["source"] = report.terrain.details.get("terrain", {}).get("dem_source") if report.terrain else None
+            terrain[name] = info
+    if satellite and report.satellite is not None:
+        report.satellite.details["overlays"] = satellite
+        if "ndvi" in satellite:
+            report.satellite.details["ndvi_overlay"] = {**satellite["ndvi"], "url": f"/api/report/{report.id}/ndvi.png"}
+    if terrain and report.terrain is not None:
+        report.terrain.details["overlays"] = terrain

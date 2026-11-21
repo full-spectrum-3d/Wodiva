@@ -94,7 +94,7 @@ def _covering(items: list[dict], geom_wgs84: BaseGeometry) -> list[dict]:
 async def observe(
     item: dict, geom_2180: BaseGeometry, inner_buffer_m: float, light: bool = False
 ) -> tuple[SatelliteObservation | None, bool]:
-    key = cache.make_key("s2obs-v2", item["id"], geom_2180.wkt, inner_buffer_m, light)
+    key = cache.make_key("s2obs-v3", item["id"], geom_2180.wkt, inner_buffer_m, light)
     cached = cache.get(key)
     if cached is not None:
         return (SatelliteObservation.model_validate(cached["obs"]) if cached["obs"] else None), cached["sharpened"]
@@ -152,24 +152,30 @@ async def observe(
             effective_pixels=round(stats["effective_pixels"], 1),
         )
     if observation is not None and not light:
-        try:
-            ndvi = overlay.ndvi_overlay(indices["ndvi"], grid.transform, epsg, geom)
-        except Exception:
-            ndvi = None
-        if ndvi is not None:
-            cache.set(_overlay_key(item["id"], geom_2180), overlay.to_cache(ndvi), 365 * DAY)
+        for name in overlay.SATELLITE:
+            try:
+                rendered = overlay.render(name, indices[name], grid.transform, epsg, geom)
+            except Exception:
+                rendered = None
+            if rendered is not None:
+                cache.set(_overlay_key(name, item["id"], geom_2180), overlay.to_cache(rendered), 365 * DAY)
     cache.set(
         key, {"obs": observation.model_dump(mode="json") if observation else None, "sharpened": sharpened}, 365 * DAY
     )
     return observation, sharpened
 
 
-def _overlay_key(scene_id: str, geom_2180: BaseGeometry) -> str:
-    return cache.make_key("s2ndvi", scene_id, geom_2180.wkt)
+def _overlay_key(name: str, scene_id: str, geom_2180: BaseGeometry) -> str:
+    return cache.make_key("s2overlay", name, scene_id, geom_2180.wkt)
 
 
-def ndvi_overlay_for(scene_id: str, geom_2180: BaseGeometry) -> dict | None:
-    return overlay.from_cache(cache.get(_overlay_key(scene_id, geom_2180)))
+def overlays_for(scene_id: str, geom_2180: BaseGeometry) -> dict[str, dict]:
+    found = {}
+    for name in overlay.SATELLITE:
+        rendered = overlay.from_cache(cache.get(_overlay_key(name, scene_id, geom_2180)))
+        if rendered is not None:
+            found[name] = rendered
+    return found
 
 
 def _round(value: float | None) -> float | None:
