@@ -7,6 +7,7 @@ from app.core.schemas import DataSource, Report
 from app.land import service
 from app.land.geo import parcel_geometry
 from app.report import maps, store
+from app.report.summary import risk
 
 log = logging.getLogger("wodiva.report")
 CATEGORY_ORDER = {"retencja": 0, "agrotechnika": 1, "nawadnianie": 2}
@@ -47,10 +48,15 @@ def build(data: ReportInput) -> Report:
         limitations=data.limitations,
         timings_s=data.timings_s,
     )
+    return persist(report)
+
+
+def persist(report: Report) -> Report:
+    report.summary = risk(report)
     map_png = None
-    artifacts = service.artifacts_for(data.parcel.id, data.analysis_date)
+    artifacts = service.artifacts_for(report.parcel.id, report.analysis_date)
     try:
-        map_png = maps.render(parcel_geometry(data.parcel.geometry_wkt_2180), artifacts)
+        map_png = maps.render(parcel_geometry(report.parcel.geometry_wkt_2180), artifacts)
     except Exception:
         log.exception("map rendering failed")
     store.save(report, map_png)

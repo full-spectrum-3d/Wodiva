@@ -280,6 +280,13 @@ class AnalyzeRequest(BaseModel):
     soil_category: Literal["I", "II", "III", "IV"] | None = None
 
 
+class RiskSummary(BaseModel):
+    status: str
+    risk_level: str | None = None
+    headline: str
+    findings: list[str] = Field(default_factory=list)
+
+
 class Report(BaseModel):
     id: str
     created_at: datetime
@@ -299,3 +306,4 @@ class Report(BaseModel):
     limitations: list[Limitation] = Field(default_factory=list)
     timings_s: dict[str, float] = Field(default_factory=dict)
     mock: bool = False
+    summary: RiskSummary | None = None

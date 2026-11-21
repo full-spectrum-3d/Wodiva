@@ -22,7 +22,10 @@ def interpret(parcel: Parcel, water: WaterState, soil: SoilInfo,
 
 ```python
 def build(data: ReportInput) -> Report
+def persist(report: Report) -> Report   # summary + mapa + zapis w report/store.py
 ```
+
+`build` kończy się wywołaniem `persist`. `analyze.py` woła `persist` także dla atrapy, więc raport `?mock=true` ma te same endpointy co zwykły (`/report/{id}`, `/summary`, PDF, mapa, asystent).
 
 Opcjonalnie routery: `app/report/api.py` i `app/assistant/api.py` z obiektem `router` (APIRouter) – `core/main.py` dołącza je automatycznie pod `/api`.
 
@@ -38,6 +41,20 @@ Dopóki tych modułów nie ma, `analyze.py` działa bez nich (limitacja `land_mi
 - `IrrigationAdvice` – status, termin, dawka, objętość, uwaga prawna.
 - `DataSource` / `Limitation` – każdy moduł zwraca swoje; raport składa listy.
 
+## Raport
+
+- `Report.summary: RiskSummary | None` – ocena ryzyka (`status`, `risk_level`, `headline`, `findings`) liczona przez B w `persist`. `GET /report/{id}/summary` zwraca to samo plus `report_id` (starsze raporty bez `summary` są liczone na żądanie).
+- `Report.id` – 12 znaków hex, także dla atrapy; atrapę rozpoznaje się po `Report.mock`.
+
+## Data analizy
+
+„Dziś” w `validate_analysis_date` to dzień w strefie Europe/Warsaw (`today_in_poland()`), niezależnie od strefy serwera.
+
+## Rejestr źródeł
+
+- `GET /api/evidence` – cały `data/land/evidence.md` (markdown).
+- `GET /api/evidence/{id}` – jedna pozycja jako JSON `{id, source, purpose}`; 404 dla nieznanego id.
+
 ## Atrapa
 
-`POST /api/analyze?mock=true` – pełny `Report` na danych syntetycznych (prawdziwy silnik wody, przykładowe sekcje B).
+`POST /api/analyze?mock=true` – pełny `Report` na danych syntetycznych (prawdziwy silnik wody, przykładowe sekcje B), zapisany jak zwykły raport.

@@ -83,7 +83,7 @@ def mock_report(req: AnalyzeRequest) -> Report:
     result = compute(prep, slope_pct=3.0, phase_offset_days=None)
     now = datetime.now(UTC)
     return Report(
-        id="mock-" + uuid.uuid4().hex[:8],
+        id=uuid.uuid4().hex[:12],
         created_at=now,
         analysis_date=req.date,
         crop=req.crop,

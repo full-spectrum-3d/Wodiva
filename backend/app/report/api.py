@@ -1,8 +1,10 @@
 import asyncio
 import re
+from functools import cache
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.core.schemas import Report
 from app.land.settings import data_dir
@@ -11,6 +13,23 @@ from app.report.summary import ReportSummary, summarize
 
 router = APIRouter()
 REPORT_ID = re.compile(r"^[0-9a-f]{12}$")
+EVIDENCE_ROW = re.compile(r"^\|\s*(E\d+)\s*\|(.+)\|(.+)\|\s*$")
+
+
+class EvidenceItem(BaseModel):
+    id: str
+    source: str
+    purpose: str
+
+
+@cache
+def evidence_items() -> dict[str, EvidenceItem]:
+    rows = (EVIDENCE_ROW.match(line) for line in (data_dir() / "evidence.md").read_text(encoding="utf-8").splitlines())
+    return {
+        m[1]: EvidenceItem(id=m[1], source=m[2].strip(), purpose=m[3].strip())
+        for m in rows
+        if m
+    }
 
 
 def load(report_id: str) -> Report:
@@ -52,3 +71,11 @@ async def report_json(report_id: str) -> Report:
 @router.get("/evidence")
 async def evidence() -> Response:
     return Response((data_dir() / "evidence.md").read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/evidence/{evidence_id}", response_model=EvidenceItem)
+async def evidence_item(evidence_id: str) -> EvidenceItem:
+    item = evidence_items().get(evidence_id.upper())
+    if item is None:
+        raise HTTPException(404, "Nie ma takiej pozycji w rejestrze źródeł.")
+    return item

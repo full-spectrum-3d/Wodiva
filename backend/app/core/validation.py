@@ -1,10 +1,14 @@
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from app.core.config import get_settings
 
 PARCEL_ID_RE = re.compile(r"^\d{6}_\d\.\d{4}(\.AR_\d{1,4})?\.[0-9A-Za-z/]{1,20}$")
 REGION_NUMBER_RE = re.compile(r"^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż .\-]{2,60}\s+[0-9]{1,6}(/[0-9]{1,4})?$")
+
+
+POLAND_TZ = ZoneInfo("Europe/Warsaw")
 
 
 class InputError(ValueError):
@@ -32,8 +36,12 @@ def is_full_parcel_id(value: str) -> bool:
     return bool(PARCEL_ID_RE.match(value))
 
 
+def today_in_poland() -> date:
+    return datetime.now(POLAND_TZ).date()
+
+
 def validate_analysis_date(value: date, today: date | None = None) -> date:
-    today = today or date.today()
+    today = today or today_in_poland()
     years = get_settings().analysis_years
     try:
         earliest = today.replace(year=today.year - years)
