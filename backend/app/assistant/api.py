@@ -1,0 +1,16 @@
+from fastapi import APIRouter
+
+from app.assistant import kolba
+from app.report.api import load
+
+router = APIRouter()
+
+
+@router.get("/assistant/questions")
+async def assistant_questions() -> list[str]:
+    return list(kolba.QUICK_QUESTIONS.values())
+
+
+@router.post("/assistant", response_model=kolba.AssistantAnswer)
+async def assistant(body: kolba.AssistantRequest) -> kolba.AssistantAnswer:
+    return await kolba.answer(load(body.report_id), body.question)
