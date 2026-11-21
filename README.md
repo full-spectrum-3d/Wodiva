@@ -69,7 +69,17 @@ python -m scripts.validate --limit 5
 - Dobowy bilans wody w glebie FAO-56 dla uprawy: zapas, zubożenie, dni stresu w sezonie, porównanie z 10 latami.
 - Scenariusze „co jeśli”: mulcz/resztki, +1 p.p. materii organicznej, zatrzymanie spływu.
 - Nawadnianie: zasadność, termin (z prognozą), dawka netto/brutto, objętość wody, informacja o pozwoleniu wodnoprawnym.
-- _(osoba B: satelity, teren, hydrologia, przyczyny, rekomendacje, raport PDF, asystent)_
+- Sentinel-2: NDVI, NDMI, NDWI, NDRE; pasma 20 m (B05, B8A, B11) wyostrzane do 10 m; piksele ważone udziałem powierzchni w działce; maska chmur SCL.
+- Stan roślin wobec tej samej pory roku w 9 poprzednich latach (VCI); lata bez Sentinel-2 uzupełnia Landsat 5/7/8/9; brakujące lata dociągane w tle do pamięci podręcznej.
+- Fenologia upraw: faza rozwoju, rozpoznanie zbioru i gołej gleby (niski NDVI po zbiorze ≠ susza), przesunięcie faz w sezonie dla modelu wody.
+- Sentinel-1: anomalia VV i VH/VV wobec poprzednich lat (niezależna od chmur).
+- Teren z NMT (zapas: Copernicus DEM): spadek dla modelu wody, zagłębienia bezodpływowe, linie spływu, TWI.
+- Hydrologia z BDOT10k: rowy melioracyjne, cieki, wody, mokradła, zadrzewienia, budowle hydrotechniczne w promieniu 500 m.
+- Tło suszowe: wskaźnik CDI z Europejskiego Obserwatorium Suszy.
+- Przyczyny niedoboru z wkładem w mm (opad, upał, gleba, spływ, brak retencji w krajobrazie) i pewność każdej części raportu.
+- Rekomendacje z reguł (`data/land/rules.yaml`) z rejestrem źródeł naukowych (`data/land/evidence.md`, E01–E22), uzasadnione liczbami działki i scenariuszami „co jeśli”, powiązane z ekoschematami; bez oceny nie ma rekomendacji.
+- Raport: kolejność KOWR, mapa działki, PDF z kodem QR, zapis w SQLite i stały link (`/api/report/{id}`, `.pdf`, `/map.png`, `/summary`).
+- Asystent „Kolba”: odpowiedzi wyłącznie z raportu działki i rejestru źródeł (Claude API), bez klucza tryb gotowych pytań.
 
 ## 3. Architektura
 
@@ -99,7 +109,12 @@ Pamięć podręczna SQLite (`core/cache.py`) z czasem ważności per źródło; 
 | Gleba | ISRIC SoilGrids 2.0 | 250 m, 0–100 cm | CC BY 4.0 |
 | Progi suszy | Rozporządzenie MRiRW, Dz.U. 2019 poz. 739 (metodyka IUNG-PIB) | 4 kategorie gleb, 14 okresów | akt prawny |
 | Uprawy | FAO-56 (Kc, korzenie, p), kalendarz dla Polski | 14 upraw | publikacja FAO |
-| _(osoba B)_ | Sentinel-2/1, NMT/NMPT, MPHP, BDOT10k, PIG-PIB, EDO | | |
+| Satelita optyczny | Sentinel-2 L2A, katalog Earth Search (AWS) | 10 m, od 07.2015 | Copernicus data policy, bezpłatne |
+| Satelita optyczny (lata wcześniejsze) | Landsat 5/7/8/9 C2 L2, Microsoft Planetary Computer | 30 m | USGS, domena publiczna |
+| Radar | Sentinel-1 RTC, Microsoft Planetary Computer | 10 m, od 2017 | Copernicus data policy; RTC: CC BY 4.0 |
+| Teren | NMT GRID1 (WCS Geoportal); zapas Copernicus DEM GLO-30 | 1 m / 30 m | dane PZGiK bezpłatne; Copernicus DEM z podaniem źródła |
+| Hydrologia, pokrycie | BDOT10k, WMS kompozycja (Geoportal) | promień 500 m | dane PZGiK bezpłatne |
+| Tło suszowe | Copernicus EDO, CDI (WMS) | ok. 5 km, co 10 dni od 2012 | Copernicus EMS, z podaniem źródła |
 
 ## 5. Dane na żywo i pobrane wcześniej
 
@@ -110,6 +125,8 @@ Pamięć podręczna SQLite (`core/cache.py`) z czasem ważności per źródło; 
 | Progi KBW (`data/water/kbw_thresholds.csv`) | przepisane z aktu prawnego | 21.11.2026 |
 | Parametry upraw (`data/water/crops.csv`) | przygotowane wcześniej | 21.11.2026 |
 | Współrzędne stacji IMGW (`data/water/imgw_synop_stations.csv`) | przygotowane wcześniej, przybliżone | 21.11.2026 |
+| Sentinel-2/1, Landsat, NMT, BDOT10k, EDO | na żądanie (pamięć podręczna `var/land_cache.sqlite`) | w chwili analizy – data w sekcji źródeł raportu |
+| Fenologia, reguły, rejestr źródeł (`data/land/`) | przygotowane wcześniej | 21.11.2026 |
 
 Wynik i rekomendacje zawsze liczy aplikacja na podstawie tych danych. Dla daty historycznej używane są wyłącznie dane do tej daty (bez prognozy i bez późniejszych obserwacji).
 
@@ -127,8 +144,12 @@ Wynik i rekomendacje zawsze liczy aplikacja na podstawie tych danych. Dla daty h
 | cdsapi | Apache-2.0 |
 | pytest, ruff | MIT |
 | respx | BSD-3-Clause |
+| Matplotlib | Matplotlib License (PSF) |
+| ReportLab (open source) | BSD |
+| PyYAML | MIT |
+| anthropic (SDK) | MIT |
 
-Żadna biblioteka nie jest na licencji GPL. Narzędzia AI: _(uzupełnić – asystent „Kolba”, osoba B; asystent AI użyty przy pisaniu kodu)_. Liczby w raporcie pochodzą wyłącznie z silnika obliczeniowego, nigdy z modelu językowego.
+Żadna biblioteka nie jest na licencji GPL. Narzędzia AI: asystent „Kolba” używa Claude (Anthropic, `WODIVA_ASSISTANT_MODEL`, domyślnie `claude-opus-5-5`) przez płatne API; dostaje tylko raport działki i rejestr źródeł, nie liczy wyników; bez `ANTHROPIC_API_KEY` działa tryb gotowych pytań bez AI. Asystent AI użyty przy pisaniu kodu: _(uzupełnić)_. Liczby w raporcie pochodzą wyłącznie z silnika obliczeniowego, nigdy z modelu językowego.
 
 ## 7. Licencje i płatne usługi
 
@@ -145,12 +166,19 @@ Wynik i rekomendacje zawsze liczy aplikacja na podstawie tych danych. Dla daty h
 - Model wody w glebie: jedna warstwa (FAO-56, pojedynczy Kc), bez kapilarnego podsiąku z wód gruntowych, bez śniegu i zamarzania; spływ uproszczony (spadek + kategoria gleby).
 - SPI z ok. 10 lat ma ograniczoną dokładność w skrajnych wartościach.
 - Współrzędne stacji IMGW są przybliżone (do kilku km).
+- Sentinel-2 ma piksel 10 m: działki mniejsze niż ok. 0,3 ha mają niską pewność oceny satelitarnej. Porównanie z poprzednimi latami nie uwzględnia zmiany uprawy na działce; lata z Landsat (30 m) dają porównanie przybliżone.
+- Limit części satelitarno-terenowej to 22 s: przy wolnym łączu część lat odniesienia nie zdąży – raport to podaje, a brakujące lata dociągają się w tle na kolejną analizę.
+- Gdy WCS NMT nie odpowiada, używany jest Copernicus DEM 30 m (model powierzchni z roślinnością i zabudową): miejsca retencji są orientacyjne.
+- BDOT10k odczytywany z WMS jako raster (siatka 2,5 m): odległości przybliżone do kilku metrów.
+- Brak danych o wodach podziemnych: usługi PIG-PIB i Hydroportalu ISOK (MPHP) nie były publicznie dostępne; cieki i rowy pochodzą z BDOT10k.
+- Radar opisuje wierzchnią warstwę gleby i roślinność; świeży opad zaburza sygnał.
 
 ## 9. Weryfikacja wyników
 
 - Testy jednostkowe (`pytest`): ET0 na przykładach z FAO-56 (przykład 18 – Bruksela, 3,9 mm/d), pedotransfer na tabeli Saxton i Rawls, bilans masy modelu wody, granice zapasu, „więcej opadu = mniej stresu”, okresy i progi KBW z rozporządzenia, brak danych po dacie analizy.
 - `scripts/validate.py`: 20 działek z 16 województw × daty (2015, 2017, 2018, 2019, dziś); czas analizy, opad ERA5 vs IMGW, susza KBW vs IUNG Monitoring Suszy (porównanie ręczne) → `docs/validation.md`.
 - `scripts/smoke_sources.py`: sprawdzenie dostępności każdego źródła.
+- Testy części B (`tests/land/`): wyostrzanie pasm, wagi pikseli, VCI, fenologia i przesunięcie faz, maska chmur Landsat, analiza terenu na syntetycznym NMT, reguły, kolejność etapów, raport PDF, API raportu i asystenta, pełny przebieg `/api/analyze` z częścią B.
 
 ## Skalowalność
 
