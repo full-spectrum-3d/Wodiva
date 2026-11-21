@@ -141,7 +141,7 @@ export class AnalysisFormPage {
         try {
           const report = await this.api.analyze({ parcel_id: parcelId.trim(), date, crop }, this.mock, abort.signal);
           if (abort.signal.aborted) return undefined;
-          // Raport idzie w stanie nawigacji — wersja ?mock=true nie jest zapisywana w backendzie.
+          // Raport idzie też w stanie nawigacji — ekran raportu nie musi go pobierać drugi raz.
           await this.router.navigate(['/raport', report.id], { state: { report } });
         } catch (err) {
           if (abort.signal.aborted) this.focusTarget = 'form';

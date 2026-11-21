@@ -45,8 +45,8 @@ Wszystkie pary policzone wzorem WCAG 2.x (luminancja względna). „Tło” = `-
 ### 2.2 Skala stanu wody / ryzyka suszy
 
 Mapowanie z danych:
-- `risk_level` z `GET /api/report/{id}/summary`: `niska` → **dobry**, `średnia` → **podwyższone**, `wysoka` → **wysokie**, `null` → **brak oceny**.
-- `soil_water.available_pct` (tylko wodowskaz, etykiety „Zapas dobry / niski / krytyczny”): ≥ 50% → good, 30–50% → watch, < 30% → high. To nie jest ocena ryzyka — ryzyko pokazujemy wyłącznie z `risk_level` (backend łączy zapas z KBW, SPI, CDI i satelitą); bez `/summary` → „Brak oceny” / stan ładowania / błąd z ponowieniem.
+- `risk_level` z `Report.summary` (starsze raporty: `GET /api/report/{id}/summary`): `niska` → **dobry**, `średnia` → **podwyższone**, `wysoka` → **wysokie**, `null` → **brak oceny**.
+- `soil_water.available_pct` (tylko wodowskaz, etykiety „Zapas dobry / niski / krytyczny”): ≥ 50% → good, 30–50% → watch, < 30% → high. To nie jest ocena ryzyka — ryzyko pokazujemy wyłącznie z `risk_level` (backend łączy zapas z KBW, SPI, CDI i satelitą); bez oceny z backendu → „Brak oceny” / stan ładowania / błąd z ponowieniem.
 
 Oś barw: woda (niebieski) → piasek (ochra) → spieczona glina (rdza). Unikamy pary zielony/czerwony (deuteranopia); niebieski i rdzawy rozróżnia każdy typ daltonizmu. **Kolor nigdy sam** — zawsze z etykietą i ikoną kształtu (kropla / kropla z kreską / pęknięta ziemia / znak zapytania).
 
@@ -167,7 +167,7 @@ Ikony: SVG inline, kreska 2 px, 24 px, `currentColor`, `aria-hidden="true"` gdy 
 Kolejność stała, odzwierciedla KOWR. Na telefonie jedna kolumna; ≥ 64rem: treść (2/3) + kolumna boczna (1/3, przyklejona) z mapą `/api/report/{id}/map.png`, metadanymi i akcjami; ≥ 90rem: dodatkowo oś kroków 1–5 po lewej jako spis treści (`aria-current` na bieżącym).
 
 0. **Nagłówek raportu:** działka (mono), gmina, uprawa, data analizy, „Dane meteo do: {meteo_until}”. Akcje: „Pobierz PDF” (`/api/report/{id}.pdf`), „Drukuj”, „Nowa analiza”. `mock=true` → stały baner „Dane przykładowe — nie do decyzji”.
-1. **Ocena stanu wody** — zdanie `headline` z `/summary` (`--text-2xl`), znacznik poziomu, wodowskaz (`available_pct`, `percentile_10y`), 3–4 kluczowe liczby z `findings` / `climate` (KBW 60 dni, opad 30 dni vs norma, dni bez opadu, dni stresu w sezonie). Kalendarz ryzyka (`risk_calendar`, dekady) jako pasek 36 komórek w skali poziomów, z tekstową listą „Najbardziej ryzykowne: maj–lipiec”. Brak `water` → stan „Brak oceny” z treścią z backendu i komunikatem, że bez oceny nie ma rekomendacji; kroki 2–5 widoczne jako wyszarzone nagłówki z tym samym wyjaśnieniem (nie ukryte).
+1. **Ocena stanu wody** — zdanie `headline` z `Report.summary` (`--text-2xl`), znacznik poziomu, wodowskaz (`available_pct`, `percentile_10y`), 3–4 kluczowe liczby z `findings` / `climate` (KBW 60 dni, opad 30 dni vs norma, dni bez opadu, dni stresu w sezonie). Kalendarz ryzyka (`risk_calendar`, dekady) jako pasek 36 komórek w skali poziomów, z tekstową listą „Najbardziej ryzykowne: maj–lipiec”. Brak `water` → stan „Brak oceny” z treścią z backendu i komunikatem, że bez oceny nie ma rekomendacji; kroki 2–5 widoczne jako wyszarzone nagłówki z tym samym wyjaśnieniem (nie ukryte).
 2. **Przyczyny** — `causes` po `rank`, każda: etykieta, wkład w mm (jeśli jest) jako poziomy pasek wspólnej skali, `evidence` jako tekst.
 3. **Retencja** — `recommendations` z `category="retencja"`, posortowane po `priority`. Lokalizacja (`location`) → odnośnik „Pokaż na mapie”.
 4. **Agrotechnika** — `category="agrotechnika"`; dodatkowo `scenarios` jako „Co by dało…”: dni stresu przed/po (`stress_days_baseline` → `stress_days_scenario`).
