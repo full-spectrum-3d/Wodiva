@@ -5,7 +5,8 @@ services:
     environment:
       ERA5_CUBE_PATH: /app/var/era5_land_pl.zarr
       CACHE_PATH: /app/var/cache.sqlite
-      WODIVA_OLLAMA_URL: http://ollama:11434
+      # domyślnie Ollama z compose; inny serwer (np. Ollama na hoście z GPU) ustaw w .env
+      WODIVA_OLLAMA_URL: ${WODIVA_OLLAMA_URL:-http://ollama:11434}
     volumes:
       - wodiva-var:/app/var
     ports:
