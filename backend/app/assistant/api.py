@@ -13,4 +13,6 @@ async def assistant_questions() -> list[str]:
 
 @router.post("/assistant", response_model=kolba.AssistantAnswer)
 async def assistant(body: kolba.AssistantRequest) -> kolba.AssistantAnswer:
-    return await kolba.answer(load(body.report_id), body.question, body.history)
+    result = await kolba.answer(load(body.report_id), body.question, body.history)
+    result.signature = kolba.sign(body.report_id, result.answer)
+    return result

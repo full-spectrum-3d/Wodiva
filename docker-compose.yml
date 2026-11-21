@@ -5,6 +5,7 @@ services:
     environment:
       ERA5_CUBE_PATH: /app/var/era5_land_pl.zarr
       CACHE_PATH: /app/var/cache.sqlite
+      WODIVA_OLLAMA_URL: http://ollama:11434
     volumes:
       - wodiva-var:/app/var
     ports:
@@ -20,6 +21,21 @@ services:
       - "8080:80"
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["pull", "${WODIVA_OLLAMA_MODEL:-SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0}"]
+    depends_on:
+      - ollama
+    restart: on-failure
+
   era5-updater:
     build: ./backend
     env_file: .env
@@ -33,3 +49,4 @@ services:
 
 volumes:
   wodiva-var:
+  ollama-models:

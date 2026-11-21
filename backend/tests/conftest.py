@@ -49,3 +49,10 @@ def cube_path(tmp_path: Path, monkeypatch) -> Path:
 @pytest.fixture
 def analysis_day() -> date:
     return date(2024, 7, 15)
+
+
+@pytest.fixture(autouse=True)
+def offline_assistant(monkeypatch):
+    from app.land.settings import land_settings
+
+    monkeypatch.setattr(land_settings(), "ollama_url", "")

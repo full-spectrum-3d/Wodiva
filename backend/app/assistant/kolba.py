@@ -1,9 +1,13 @@
+import hashlib
+import hmac
 import re
+import secrets
 from datetime import date
 from functools import lru_cache
 from typing import Literal
 
 import anthropic
+import httpx
 from pydantic import BaseModel, Field
 
 from app.assistant import links
@@ -14,11 +18,13 @@ from app.land.settings import data_dir, land_settings
 from app.report.summary import summarize
 
 MAX_HISTORY = 12
+_PROCESS_SECRET = secrets.token_bytes(32)
 
 
 class Turn(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=2000)
+    signature: str | None = Field(default=None, max_length=64)
 
 
 class AssistantRequest(BaseModel):
@@ -32,6 +38,7 @@ class AssistantAnswer(BaseModel):
     mode: str
     evidence: list[str] = Field(default_factory=list)
     links: list[Link] = Field(default_factory=list)
+    signature: str | None = None
 
 
 QUICK_QUESTIONS = {
@@ -259,9 +266,26 @@ def offline_answer(report: Report, question: str) -> AssistantAnswer:
     return _offline(text, question, extra=links.DEFAULT[:2])
 
 
-def _messages(history: list[Turn], question: str) -> list[dict]:
+def _secret() -> bytes:
+    configured = land_settings().assistant_secret
+    return configured.encode() if configured else _PROCESS_SECRET
+
+
+def sign(report_id: str, text: str) -> str:
+    return hmac.new(_secret(), f"{report_id}\n{text}".encode(), hashlib.sha256).hexdigest()
+
+
+def _trusted(report_id: str, turn: Turn) -> bool:
+    if turn.role == "user":
+        return True
+    return turn.signature is not None and hmac.compare_digest(turn.signature, sign(report_id, turn.content))
+
+
+def _messages(report_id: str, history: list[Turn], question: str) -> list[dict]:
     turns: list[Turn] = []
     for turn in history[-MAX_HISTORY:]:
+        if not _trusted(report_id, turn):
+            continue
         if not turns and turn.role != "user":
             continue
         if turns and turns[-1].role == turn.role:
@@ -278,27 +302,88 @@ def _client() -> anthropic.AsyncAnthropic:
     return anthropic.AsyncAnthropic(api_key=land_settings().anthropic_api_key, timeout=60.0, max_retries=1)
 
 
-# shortcut: licznik w pamięci jednego procesu, zeruje się po restarcie; przy kilku workerach przenieś do SQLite
-_usage: dict = {"day": None, "count": 0}
+_usage: dict = {"day": None, "count": 0, "reports": {}}
 
 
-def _within_daily_limit() -> bool:
+def _over_limit(report_id: str) -> str | None:
     today = date.today()
     if _usage["day"] != today:
-        _usage.update(day=today, count=0)
-    if _usage["count"] >= land_settings().assistant_daily_limit:
-        return False
+        _usage.update(day=today, count=0, reports={})
+    settings = land_settings()
+    if _usage["count"] >= settings.assistant_daily_limit:
+        return "dzienny limit"
+    used = _usage["reports"].get(report_id, 0)
+    if used >= settings.assistant_report_limit:
+        return "limit pytań do raportu"
     _usage["count"] += 1
-    return True
+    _usage["reports"][report_id] = used + 1
+    return None
 
 
-async def answer(report: Report, question: str, history: list[Turn] | None = None) -> AssistantAnswer:
-    if not land_settings().anthropic_api_key:
-        return offline_answer(report, question)
-    if not _within_daily_limit():
-        fallback = offline_answer(report, question)
-        fallback.mode = "bez AI (dzienny limit)"
-        return fallback
+FACT_HANDLERS = (
+    _causes,
+    _first_steps,
+    _irrigation,
+    _soil_water,
+    _rain,
+    _soil,
+    _satellite,
+    _retention,
+    _confidence,
+    _subsidies,
+    _groundwater,
+)
+OLLAMA_TURNS = 4
+REFUSAL = "Na to nie odpowiem. Chętnie pogadam o wodzie i uprawach na Twojej działce."
+
+
+def _model_ready() -> bool:
+    settings = land_settings()
+    if settings.assistant_provider == "ollama":
+        return bool(settings.ollama_url and settings.ollama_model)
+    return bool(settings.anthropic_api_key)
+
+
+def _unavailable(report: Report, question: str) -> AssistantAnswer:
+    fallback = offline_answer(report, question)
+    fallback.mode = "bez AI (model niedostępny)"
+    return fallback
+
+
+def _facts(report: Report) -> str:
+    texts = (handler(report, "").answer.split("\n\nSprawdź też:")[0] for handler in FACT_HANDLERS)
+    return "\n".join(texts)
+
+
+def _strip_reasoning(text: str) -> str:
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
+async def _ask_ollama(report: Report, history: list[Turn], question: str) -> str | None:
+    settings = land_settings()
+    system = (
+        f"{PERSONA}\n\nRejestr źródeł:\n{evidence_text()}\n\n"
+        f"Fakty z raportu działki:\n{_facts(report)}\n\nOcena (JSON): {summarize(report).model_dump_json()}"
+    )
+    messages = _messages(report.id, history, question)[-(2 * OLLAMA_TURNS + 1) :]
+    payload = {
+        "model": settings.ollama_model,
+        "stream": False,
+        "messages": [{"role": "system", "content": system}, *messages],
+        "options": {
+            "num_ctx": settings.ollama_num_ctx,
+            "num_predict": settings.ollama_num_predict,
+            "temperature": 0.2,
+        },
+    }
+    async with httpx.AsyncClient(timeout=settings.ollama_timeout_s) as client:
+        response = await client.post(settings.ollama_url.rstrip("/") + "/api/chat", json=payload)
+        response.raise_for_status()
+    return _strip_reasoning(response.json().get("message", {}).get("content", ""))
+
+
+async def _ask_anthropic(report: Report, history: list[Turn], question: str) -> str | None:
+    settings = land_settings()
     system = [
         {"type": "text", "text": PERSONA},
         {"type": "text", "text": "Rejestr źródeł:\n" + evidence_text(), "cache_control": {"type": "ephemeral"}},
@@ -308,27 +393,35 @@ async def answer(report: Report, question: str, history: list[Turn] | None = Non
             "cache_control": {"type": "ephemeral"},
         },
     ]
-    try:
-        response = await _client().beta.messages.create(
-            model=land_settings().assistant_model,
-            max_tokens=4000,
-            system=system,
-            output_config={"effort": land_settings().assistant_effort},
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            messages=_messages(history or [], question),
-        )
-    except anthropic.APIError:
-        fallback = offline_answer(report, question)
-        fallback.mode = "bez AI (model niedostępny)"
-        return fallback
+    response = await _client().beta.messages.create(
+        model=settings.assistant_model,
+        max_tokens=settings.assistant_max_tokens,
+        system=system,
+        output_config={"effort": settings.assistant_effort},
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
+        messages=_messages(report.id, history, question),
+    )
     if response.stop_reason == "refusal":
-        return AssistantAnswer(
-            answer="Na to nie odpowiem. Chętnie pogadam o wodzie i uprawach na Twojej działce.", mode="AI"
-        )
-    text = "".join(block.text for block in response.content if block.type == "text").strip()
-    if not text:
+        return None
+    return "".join(block.text for block in response.content if block.type == "text").strip()
+
+
+async def answer(report: Report, question: str, history: list[Turn] | None = None) -> AssistantAnswer:
+    if report.mock or not _model_ready():
+        return offline_answer(report, question)
+    limit = _over_limit(report.id)
+    if limit:
         fallback = offline_answer(report, question)
-        fallback.mode = "bez AI (model niedostępny)"
+        fallback.mode = f"bez AI ({limit})"
         return fallback
+    ask = _ask_ollama if land_settings().assistant_provider == "ollama" else _ask_anthropic
+    try:
+        text = await ask(report, history or [], question)
+    except (anthropic.APIError, httpx.HTTPError, ValueError):
+        return _unavailable(report, question)
+    if text is None:
+        return AssistantAnswer(answer=REFUSAL, mode="AI")
+    if not text:
+        return _unavailable(report, question)
     return AssistantAnswer(answer=text, mode="AI", evidence=_evidence_ids(text), links=links.in_text(text))

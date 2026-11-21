@@ -19,6 +19,15 @@ class LandSettings(BaseSettings):
     assistant_model: str = "claude-opus-5-5"
     assistant_effort: str = "medium"
     assistant_daily_limit: int = 300
+    assistant_report_limit: int = 30
+    assistant_max_tokens: int = 2000
+    assistant_secret: str = ""
+    assistant_provider: str = "ollama"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
+    ollama_num_ctx: int = 8192
+    ollama_num_predict: int = 700
+    ollama_timeout_s: float = 90.0
     anthropic_api_key: str = Field(
         default="", validation_alias=AliasChoices("ANTHROPIC_API_KEY", "WODIVA_ANTHROPIC_API_KEY")
     )
