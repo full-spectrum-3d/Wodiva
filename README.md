@@ -90,6 +90,7 @@ Z odpowiedzi weź `id` i otwórz:
 
 - `http://localhost:8000/api/report/{id}.pdf` – raport PDF,
 - `http://localhost:8000/api/report/{id}/map.png` – mapa działki.
+- `http://localhost:8000/api/report/{id}/ndvi.png` – nakładka NDVI z ostatniego zdjęcia Sentinel-2 (granice w `satellite.details.ndvi_overlay.bounds`).
 
 Raport testowy na danych syntetycznych, bez internetu: `POST /api/analyze?mock=true` z tym samym body.
 
@@ -185,6 +186,7 @@ Miejsca są zaznaczone na mapie działki.
 **Raport i asystent.**
 
 - Raport w kolejności KOWR, zapisany ze stałym linkiem, z PDF, mapą i podsumowaniem `/api/report/{id}/summary`.
+- Dane do mapy interaktywnej w JSON raportu (GeoJSON, WGS84): granica działki, zagłębienia, linie spływu, miejsca rekomendacji, kształt i najbliższy punkt rowu, cieku i zbiornika, współrzędne punktów monitoringu wód podziemnych oraz nakładka NDVI.
 - Asystent „Kolba” rozmawia z rolnikiem o jego działce. Gotowe pytania są tylko podpowiedzią: można pytać własnymi słowami, także o sprawy ogólne (uprawa, retencja, przepisy, dopłaty). Fakty o działce bierze z raportu, a gdy czegoś nie wie, podaje strony urzędowe (ARiMR, Wody Polskie, IMGW, IUNG, MRiRW, ODR).
 
 ## 3. Architektura
