@@ -4,11 +4,11 @@ HackNation 2026 · zadanie KOWR „Zatrzymaj wodę, chroń plony” · zespół 
 
 | Materiał zgłoszenia | Gdzie |
 | :--- | :--- |
-| Działająca wersja | `[LINK DO APLIKACJI]` |
+| Aplikacja | [Otwórz aplikację](https://mutual-submitted-clothes-buck.trycloudflare.com/) |
 | Instrukcja uruchomienia | [sekcja 1](#1-uruchomienie) |
-| Repozytorium (prywatne) | https://github.com/full-spectrum-3d/Wodiva |
+| Repozytorium (prywatne) | [github.com/full-spectrum-3d/Wodiva](https://github.com/full-spectrum-3d/Wodiva) |
 | Prezentacja PDF (do 10 slajdów) | `[LINK DO PREZENTACJI]` |
-| Film z działania (do 3 min) | `[LINK DO FILMU]` |
+| Film z działania (do 3 min) | [Film na YouTube](https://www.youtube.com/watch?v=WzY-wvdYbRY) |
 | Raporty wygenerowane przez prototyp | `docs/raporty/` |
 
 ## Opis rozwiązania
