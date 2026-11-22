@@ -14,6 +14,7 @@ import { RetentionTab } from './tabs/retention-tab';
 import { SourcesTab } from './tabs/sources-tab';
 import { levelFromRisk } from './levels';
 import { ParcelMap } from './map/parcel-map';
+import { KolbaAvatar } from './ui/kolba-avatar';
 import { KolbaChat } from './ui/kolba-chat';
 import { LevelBadge } from './ui/level-badge';
 
@@ -23,7 +24,7 @@ const TAB_QUERY_PARAM = 'zakladka';
 @Component({
   selector: 'app-report-page',
   imports: [
-    RouterLink, DecimalPipe, DatePipe, KolbaChat, LevelBadge, ReportTabs, ParcelMap,
+    RouterLink, DecimalPipe, DatePipe, KolbaAvatar, KolbaChat, LevelBadge, ReportTabs, ParcelMap,
     AssessmentTab, CausesTab, RetentionTab, AgrotechTab, IrrigationTab, SourcesTab],
   templateUrl: './report.page.html',
 })

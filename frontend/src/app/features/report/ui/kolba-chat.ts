@@ -6,6 +6,7 @@ import { WodivaApi } from '../../../core/wodiva-api';
 import { ApiError, AssistantAnswer } from '../../../core/wodiva-api.model';
 import { EvidenceRef } from './evidence-ref';
 import { EvidenceText } from './evidence-text';
+import { KolbaAvatar } from './kolba-avatar';
 
 const MAX_LENGTH = 500;
 
@@ -23,15 +24,22 @@ export function modeLabel(mode: string): string {
 /** Asystent Kolba (DESIGN.md §6.4) — odpowiada tylko z raportu; liczby pochodzą z backendu, nie z modelu. */
 @Component({
   selector: 'app-kolba-chat',
-  imports: [FormField, EvidenceRef, EvidenceText],
+  imports: [FormField, EvidenceRef, EvidenceText, KolbaAvatar],
   template: `
-    <p class="text-sm text-text-muted">Kolba odpowiada tylko na podstawie tego raportu. Nie liczy nowych wyników.</p>
+    <div class="flex items-center gap-3">
+      <app-kolba-avatar class="shrink-0" [size]="64" />
+      <p>Cześć, jestem Kolba. Pytaj o wodę na tej działce, a odpowiem na podstawie raportu.</p>
+    </div>
+    <p class="mt-2 text-sm text-text-muted">Kolba odpowiada tylko na podstawie tego raportu. Nie liczy nowych wyników.</p>
 
     <ol class="mt-4 space-y-4" role="log" aria-label="Rozmowa z Kolbą">
       @for (x of history(); track $index) {
         <li>
           <p class="font-semibold">{{ x.question }}</p>
-          <p class="mt-1 rounded-md bg-surface-sunken p-3 whitespace-pre-line"><app-evidence-text [text]="x.answer.answer" /></p>
+          <div class="mt-1 flex items-start gap-2">
+            <app-kolba-avatar class="shrink-0" [size]="32" />
+            <p class="flex-1 rounded-md bg-surface-sunken p-3 whitespace-pre-line"><app-evidence-text [text]="x.answer.answer" /></p>
+          </div>
           @if (x.answer.evidence.length) {
             <p class="mt-1 text-sm">
               Źródła:
@@ -47,7 +55,7 @@ export function modeLabel(mode: string): string {
 
     <div aria-live="polite" class="mt-3">
       @if (sending()) {
-        <p class="text-text-muted">Kolba pisze…</p>
+        <p class="flex items-center gap-2 text-text-muted"><app-kolba-avatar [size]="24" />Kolba pisze…</p>
       }
     </div>
 
