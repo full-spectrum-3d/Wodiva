@@ -9,6 +9,7 @@ export interface Parcel {
   number: string | null;
   area_ha: number;
   is_agricultural: boolean | null;
+  land_use?: { code: string; soil_class: string | null; share: number | null }[];
   /** Granica działki, GeoJSON w WGS84 (EPSG:4326). */
   geometry_geojson?: Geometry;
 }

@@ -7,12 +7,15 @@ from app.core.config import get_settings
 from app.core.main import create_app
 from app.water import parcel as parcel_module
 from app.water.geo import geom_to_4326
-from app.water.sources import parcels_parquet, uldk
+from app.water.sources import egib, parcels_parquet, uldk
 
 INDEXED = box(677000, 481500, 677200, 481650)
 OTHER = box(700000, 500000, 700100, 500100)
 INDEXED_ID = "143505_5.0001.1207/6"
 MISSING_ID = "143505_5.0001.999"
+OTHER_ID = "143505_5.0001.1209/5"
+NO_CODES_ID = "143505_5.0001.1210"
+NO_CODES = box(710000, 510000, 710100, 510100)
 
 
 def _write_index(folder, parcels):
@@ -20,20 +23,27 @@ def _write_index(folder, parcels):
     con.execute(
         "CREATE TABLE p (id_dzialki VARCHAR, numer_dzialki VARCHAR, nazwa_obrebu VARCHAR, numer_obrebu VARCHAR, "
         "numer_jednostki VARCHAR, nazwa_gminy VARCHAR, data VARCHAR, xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, "
-        "ymax DOUBLE, geometry BLOB)"
+        "ymax DOUBLE, geometry BLOB, klasouzytki_egib VARCHAR)"
     )
-    for pid, number, geom in parcels:
+    for pid, number, geom, codes in parcels:
         con.execute(
             "INSERT INTO p VALUES (?, ?, 'DESKURÓW', '1', '143505_5', 'WYSZKÓW - OBSZAR WIEJSKI', '2026-11-20', "
-            "?, ?, ?, ?, ?)",
-            [pid, number, *geom.bounds, geom.wkb],
+            "?, ?, ?, ?, ?, ?)",
+            [pid, number, *geom.bounds, geom.wkb, codes],
         )
     con.execute(f"COPY p TO '{(folder / 'woj_14.parquet').as_posix()}' (FORMAT parquet)")
 
 
 @pytest.fixture
 def index(tmp_path, monkeypatch):
-    _write_index(tmp_path, [(INDEXED_ID, "1207/6", INDEXED), ("143505_5.0001.1209/5", "1209/5", OTHER)])
+    _write_index(
+        tmp_path,
+        [
+            (INDEXED_ID, "1207/6", INDEXED, "RIVa,RIVb,Br/RIIIa,ŁIII"),
+            (OTHER_ID, "1209/5", OTHER, "B,dr"),
+            (NO_CODES_ID, "1210", NO_CODES, ""),
+        ],
+    )
     monkeypatch.setattr(get_settings(), "parcels_index_dir", tmp_path)
     return tmp_path
 
@@ -94,7 +104,7 @@ def test_search_endpoint_suggests_parcels(index):
     found = client.get("/api/parcels/search", params={"gmina": "wyszk", "numer": "1207"}).json()
     assert [p["id"] for p in found] == [INDEXED_ID]
     assert found[0]["obreb"] == "DESKURÓW" and found[0]["numer"] == "1207/6"
-    assert len(client.get("/api/parcels/search", params={"gmina": "wyszk", "obreb": "desk"}).json()) == 2
+    assert len(client.get("/api/parcels/search", params={"gmina": "wyszk", "obreb": "desk"}).json()) == 3
     assert client.get("/api/parcels/search", params={"gmina": "wy"}).status_code == 422
     assert client.get("/api/parcels/search", params={"gmina": "wysz'; --"}).status_code == 422
 
@@ -103,3 +113,28 @@ def test_search_without_index_is_unavailable(monkeypatch, tmp_path):
     monkeypatch.setattr(get_settings(), "parcels_index_dir", tmp_path / "brak")
     response = TestClient(create_app()).get("/api/parcels/search", params={"gmina": "wyszk"})
     assert response.status_code == 503
+
+
+def test_codes_become_land_use_shares():
+    shares = egib.shares_from_codes("RIVa,RIVb,Br/RIIIa,ŁIII")
+    assert [(s.code, s.soil_class) for s in shares] == [("R", "IVa"), ("R", "IVb"), ("Br", "IIIa"), ("Ł", "III")]
+    assert egib.is_agricultural(shares) is True
+    assert egib.is_agricultural(egib.shares_from_codes("B,dr")) is False
+    assert egib.shares_from_codes("") == [] and egib.shares_from_codes(None) == []
+
+
+async def test_land_use_comes_from_index_without_kieg(index, monkeypatch):
+    calls = []
+
+    async def kieg(geom):
+        calls.append(geom)
+        return [], egib.data_source()
+
+    monkeypatch.setattr(egib, "land_use", kieg)
+    found, sources = await parcel_module.resolve_by_id(INDEXED_ID)
+    assert found.is_agricultural is True and {u.code for u in found.land_use} == {"R", "Br", "Ł"}
+    assert sources[-1].name.startswith("EGiB – klasoużytki") and "RIVa" in sources[-1].note
+    other, _ = await parcel_module.resolve_by_id(OTHER_ID)
+    assert other.is_agricultural is False and not calls
+    await parcel_module.resolve_by_id(NO_CODES_ID)
+    assert len(calls) == 1

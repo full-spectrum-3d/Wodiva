@@ -112,3 +112,29 @@ def is_agricultural(shares: list[LandUseShare]) -> bool | None:
         return None
     agri = sum(s.share or 0 for s in shares if s.code in AGRICULTURAL)
     return agri >= 0.5
+
+
+INDEX_DATA_URL = "https://opendata.geoportal.gov.pl/InneDane/latest_exports/eziudp_wfs/PARQUET/"
+
+
+def shares_from_codes(codes: str | None) -> list[LandUseShare]:
+    found = []
+    for token in (codes or "").split(","):
+        match = CELL_RE.match(token.strip().replace("/", "-"))
+        if match:
+            found.append((match["ofu"].split("-")[0], match["cls"]))
+    shares = []
+    for (code, cls), n in Counter(found).most_common():
+        shares.append(LandUseShare(code=code, soil_class=cls, share=round(n / len(found), 2)))
+    return shares
+
+
+def index_source(codes: str) -> DataSource:
+    return DataSource(
+        name="EGiB – klasoużytki z lokalnego indeksu działek",
+        url=INDEX_DATA_URL,
+        license="Dane publiczne GUGiK, bezpłatne",
+        retrieved_at=datetime.now(UTC),
+        status=SourceStatus.ok,
+        note=f"klasoużytki: {codes}; udziały przybliżone, bo eksport podaje listę klasoużytków bez powierzchni",
+    )

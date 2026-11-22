@@ -109,9 +109,11 @@ export class AnalysisFormPage {
   }
 
   protected agriculturalLabel(parcel: Parcel): string {
-    if (parcel.is_agricultural === true) return 'grunt rolny';
-    if (parcel.is_agricultural === false) return 'grunt nierolny';
-    return 'nie udało się sprawdzić (EGiB nie odpowiedział)';
+    const classes = [...new Set((parcel.land_use ?? []).map((u) => `${u.code}${u.soil_class ? ' ' + u.soil_class : ''}`))];
+    const suffix = classes.length ? ` (${classes.slice(0, 5).join(', ')})` : '';
+    if (parcel.is_agricultural === true) return `grunt rolny${suffix}`;
+    if (parcel.is_agricultural === false) return `grunt nierolny${suffix}`;
+    return 'brak danych o użytku w EGiB';
   }
 
   protected setOnlyAgricultural(event: Event): void {

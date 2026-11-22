@@ -68,9 +68,13 @@ def build_parcel(row: dict, source: str) -> Parcel:
     )
 
 
-async def _with_land_use(parcel: Parcel, sources: list[DataSource]) -> Parcel:
-    shares, ds = await egib.land_use(parse_wkt(parcel.geometry_wkt_2180))
-    sources.append(ds)
+async def _with_land_use(parcel: Parcel, sources: list[DataSource], codes: str | None = None) -> Parcel:
+    shares = egib.shares_from_codes(codes)
+    if shares:
+        sources.append(egib.index_source(codes or ""))
+    else:
+        shares, ds = await egib.land_use(parse_wkt(parcel.geometry_wkt_2180))
+        sources.append(ds)
     parcel.land_use = shares
     parcel.is_agricultural = egib.is_agricultural(shares)
     if parcel.is_agricultural is False:
@@ -128,7 +132,7 @@ async def resolve_by_id(raw_id: str, with_land_use: bool = True) -> tuple[Parcel
     row = await _from_index(parcels_parquet.index_by_id, parcel_id) if is_full_parcel_id(parcel_id) else None
     parcel = _indexed(row, sources) if row is not None else await _remote_by_id(parcel_id, sources)
     if with_land_use:
-        parcel = await _with_land_use(parcel, sources)
+        parcel = await _with_land_use(parcel, sources, row.get("land_codes") if row else None)
     return parcel, sources
 
 
@@ -146,5 +150,5 @@ async def resolve_by_point(lat: float, lon: float, with_land_use: bool = True) -
         parcel = build_parcel(rows[0], "ULDK")
         sources.append(uldk.data_source())
     if with_land_use:
-        parcel = await _with_land_use(parcel, sources)
+        parcel = await _with_land_use(parcel, sources, row.get("land_codes") if row else None)
     return parcel, sources

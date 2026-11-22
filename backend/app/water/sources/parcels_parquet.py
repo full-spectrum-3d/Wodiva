@@ -24,7 +24,9 @@ VOIVODESHIPS = {f"{n:02d}" for n in range(2, 33, 2)}
 NATIONAL_FILE = "/0_dzialki.parquet"
 PARCEL_ID = re.compile(r"[0-9A-Za-z_./]{5,60}")
 INDEX_NAME = "EGiB – lokalny indeks"
-INDEX_COLUMNS = "id_dzialki, numer_dzialki, nazwa_obrebu, numer_jednostki, nazwa_gminy, data, geometry"
+INDEX_COLUMNS = (
+    "id_dzialki, numer_dzialki, nazwa_obrebu, numer_jednostki, nazwa_gminy, data, klasouzytki_egib, geometry"
+)
 SEARCH_COLUMNS = "id_dzialki, numer_dzialki, nazwa_obrebu, nazwa_gminy, numer_jednostki"
 
 
@@ -165,6 +167,7 @@ def _index_row(row: dict, geom: BaseGeometry, path: Path) -> dict:
         "geom_wkt": geom.wkt,
         "index_file": str(path),
         "index_data": str(row["data"]) if row.get("data") else None,
+        "land_codes": row.get("klasouzytki_egib") or None,
     }
 
 
