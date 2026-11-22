@@ -110,22 +110,27 @@ export interface Confidence {
   reason: string;
 }
 
-/** Nakładka NDVI z ostatniego bezchmurnego zdjęcia Sentinel-2 (report.satellite.details.ndvi_overlay). */
-export interface NdviOverlay {
+/** Nakładka rastrowa z backendu: wskaźniki Sentinel-2 (satellite.details.overlays) i terenu (terrain.details.overlays). */
+export interface RasterOverlay {
   url: string;
   bounds: [[number, number], [number, number]];
-  date: string | null;
+  date?: string | null;
   range: [number, number];
   colors: string[];
   opacity: number;
+  label?: string;
+  description?: string;
+  unit?: string;
 }
+
+export type NdviOverlay = RasterOverlay;
 
 export interface SatelliteState {
   ndvi: number | null;
   ndmi: number | null;
   vci: number | null;
   last_scene_date: string | null;
-  details: { ndvi_overlay?: NdviOverlay } & Record<string, unknown>;
+  details: { ndvi_overlay?: RasterOverlay; overlays?: Record<string, RasterOverlay> } & Record<string, unknown>;
 }
 
 export interface Depression {
@@ -148,6 +153,7 @@ export interface TerrainInfo {
   depressions: Depression[];
   flow_lines: FlowLine[];
   tree_cover_buffer_pct: number | null;
+  details?: { overlays?: Record<string, RasterOverlay> } & Record<string, unknown>;
 }
 
 /** Rów, ciek albo zbiornik z BDOT10k (kształt w promieniu 500 m, punkt najbliżej środka działki). */

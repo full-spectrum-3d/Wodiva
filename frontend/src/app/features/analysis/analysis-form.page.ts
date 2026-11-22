@@ -54,6 +54,7 @@ export class AnalysisFormPage {
   protected readonly crops = httpResource<Crop[]>(() => '/api/crops');
 
   private readonly model = signal({ parcelId: '', date: this.dates.max, crop: '' });
+  protected readonly onlyAgricultural = signal(true);
   protected readonly analysis = form(this.model, (p) => {
     // Po trim(), bo tak wysyłamy do backendu (AnalyzeRequest.parcel_id: 3–80 znaków).
     validate(p.parcelId, ({ value }) => {
@@ -61,6 +62,10 @@ export class AnalysisFormPage {
       if (!v) return { kind: 'required', message: 'Podaj numer działki albo użyj swojej lokalizacji.' };
       if (v.length < 3) return { kind: 'minLength', message: 'Numer działki jest za krótki.' };
       if (v.length > 80) return { kind: 'maxLength', message: 'Numer działki jest za długi.' };
+      const found = this.lookup?.();
+      if (this.onlyAgricultural() && found?.state === 'found' && found.parcel.id === v && found.parcel.is_agricultural === false) {
+        return { kind: 'nonAgricultural', message: 'To nie jest działka rolna. Wybierz działkę rolną albo wyłącz „Tylko działki rolne”.' };
+      }
       return undefined;
     });
     required(p.date, { message: 'Wybierz datę analizy.' });
@@ -101,6 +106,16 @@ export class AnalysisFormPage {
       this.destroyed = true;
       this.abort?.abort();
     });
+  }
+
+  protected agriculturalLabel(parcel: Parcel): string {
+    if (parcel.is_agricultural === true) return 'grunt rolny';
+    if (parcel.is_agricultural === false) return 'grunt nierolny';
+    return 'nie udało się sprawdzić (EGiB nie odpowiedział)';
+  }
+
+  protected setOnlyAgricultural(event: Event): void {
+    this.onlyAgricultural.set((event.target as HTMLInputElement).checked);
   }
 
   protected findParcel(): void {

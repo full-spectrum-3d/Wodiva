@@ -97,8 +97,16 @@ export class ParcelPicker {
     };
     bases[savedBase()].addTo(map);
     const parcels = gugikWms(L, EGIB_WMS, 'dzialki,numery_dzialek', PARCELS_MIN_ZOOM).addTo(map);
+    const landUse = gugikWms(L, EGIB_WMS, 'uzytki,kontury', PARCELS_MIN_ZOOM);
     const settings = L.control
-      .layers(bases, { [`Granice i numery działek (od przybliżenia ${PARCELS_MIN_ZOOM})`]: parcels }, { collapsed: true })
+      .layers(
+        bases,
+        {
+          [`Granice i numery działek (od przybliżenia ${PARCELS_MIN_ZOOM})`]: parcels,
+          [`Użytki: R grunty orne, Ł łąki, Ps pastwiska (od przybliżenia ${PARCELS_MIN_ZOOM})`]: landUse,
+        },
+        { collapsed: true },
+      )
       .addTo(map);
     const toggle = settings.getContainer()?.querySelector<HTMLElement>('.leaflet-control-layers-toggle');
     toggle?.setAttribute('aria-label', 'Ustawienia mapy: rodzaj mapy i granice działek');

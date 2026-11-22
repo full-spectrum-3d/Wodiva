@@ -4,7 +4,7 @@ import type { Geometry, Point } from 'geojson';
 import type * as Leaflet from 'leaflet';
 
 import { addPolishZoom, BDOT_WMS, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../../core/map/leaflet';
-import { Report } from '../../../core/report.model';
+import { RasterOverlay, Report } from '../../../core/report.model';
 import { MapFocus } from './map-focus';
 import { MapObject, mapObjects } from './map-objects';
 import { zoneAround } from './zone';
@@ -37,6 +37,29 @@ export function endBearing(geometry: Geometry): number | null {
   return (Math.atan2(y2 - y1, (x2 - x1) * Math.cos((y2 * Math.PI) / 180)) * 180) / Math.PI;
 }
 
+export interface RasterLayer extends RasterOverlay {
+  key: string;
+  title: string;
+}
+
+const RASTER_TITLES: Record<string, string> = {
+  ndvi: 'Stan roślin (NDVI)',
+  ndmi: 'Wilgotność roślin (NDMI)',
+  ndwi: 'Woda na powierzchni (NDWI)',
+  ndre: 'Odżywienie roślin (NDRE)',
+  slope: 'Spadek terenu',
+  twi: 'Wilgotność terenu (TWI)',
+};
+
+export function rasterOverlays(report: Report): RasterLayer[] {
+  const satellite = report.satellite?.details;
+  const sources: Record<string, RasterOverlay> = {
+    ...(satellite?.overlays ?? (satellite?.ndvi_overlay ? { ndvi: satellite.ndvi_overlay } : {})),
+    ...(report.terrain?.details?.overlays ?? {}),
+  };
+  return Object.entries(sources).map(([key, overlay]) => ({ ...overlay, key, title: RASTER_TITLES[key] ?? overlay.label ?? key }));
+}
+
 /** Interaktywna mapa działki (Leaflet). W druku zastępuje ją statyczna mapa /api/report/{id}/map.png. */
 @Component({
   selector: 'app-parcel-map',
@@ -53,9 +76,9 @@ export class ParcelMap {
   private announceTimer?: ReturnType<typeof setTimeout>;
 
   protected readonly objects = computed(() => mapObjects(this.report()));
-  protected readonly ndvi = computed(() => this.report().satellite?.details?.ndvi_overlay ?? null);
-  protected readonly ndviGradient = computed(() => `linear-gradient(to right, ${this.ndvi()?.colors.join(', ')})`);
-  protected readonly ndviOn = signal(false);
+  protected readonly rasters = computed(() => rasterOverlays(this.report()));
+  protected readonly activeRaster = signal<RasterLayer | null>(null);
+  protected readonly rasterGradient = computed(() => `linear-gradient(to right, ${this.activeRaster()?.colors.join(', ') ?? ''})`);
   protected readonly failed = signal(false);
   protected readonly isFullscreen = signal(false);
   /** Komunikat dla czytnika ekranu po „Pokaż na mapie” (fokus zostaje na przycisku). */
@@ -159,11 +182,11 @@ export class ParcelMap {
     groups.ciek = groups.row;
     groups.zbiornik = groups.row;
 
-    const ndvi = this.ndvi();
-    let ndviLayer: Leaflet.ImageOverlay | null = null;
-    if (ndvi) {
-      ndviLayer = L.imageOverlay(ndvi.url, ndvi.bounds, { opacity: ndvi.opacity, className: 'map-ndvi' });
-      overlays[`Stan roślin NDVI${ndvi.date ? ` (${ndvi.date})` : ''}`] = ndviLayer;
+    const rasterLayers = new Map<Leaflet.Layer, RasterLayer>();
+    for (const raster of this.rasters()) {
+      const layer = L.imageOverlay(raster.url, raster.bounds, { opacity: raster.opacity, className: 'map-ndvi' });
+      rasterLayers.set(layer, raster);
+      overlays[`${raster.title}${raster.date ? ` (${raster.date})` : ''}`] = layer;
     }
     overlays[`Działki sąsiednie (EGiB, od przybliżenia ${EGIB_MIN_ZOOM})`] = wms(EGIB_WMS, 'dzialki,numery_dzialek', EGIB_MIN_ZOOM);
     overlays[`Użytki i klasy gleb (EGiB, od przybliżenia ${EGIB_MIN_ZOOM})`] = wms(EGIB_WMS, 'uzytki,kontury', EGIB_MIN_ZOOM);
@@ -180,8 +203,17 @@ export class ParcelMap {
       close?.setAttribute('aria-label', 'Zamknij okienko');
       close?.setAttribute('title', 'Zamknij okienko');
     });
-    map.on('overlayadd', (e) => e.layer === ndviLayer && this.ndviOn.set(true));
-    map.on('overlayremove', (e) => e.layer === ndviLayer && this.ndviOn.set(false));
+    map.on('overlayadd', (e) => {
+      const raster = rasterLayers.get(e.layer);
+      if (!raster) return;
+      this.activeRaster.set(raster);
+      setTimeout(() => {
+        for (const other of rasterLayers.keys()) if (other !== e.layer && map.hasLayer(other)) map.removeLayer(other);
+      });
+    });
+    map.on('overlayremove', (e) => {
+      if (rasterLayers.get(e.layer) === this.activeRaster()) this.activeRaster.set(null);
+    });
 
     // Granica działki: ciemna obwódka + żółta linia, zawsze na wierzchu.
     const geometry = report.parcel.geometry_geojson;

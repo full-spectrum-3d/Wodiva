@@ -23,11 +23,16 @@
       @if (isFullscreen()) {
         <button type="button" class="btn-secondary map-exit" (click)="fullscreen()">Zamknij pełny ekran</button>
       }
-      @if (ndviOn() && ndvi(); as n) {
-        <div class="map-ndvi-bar">
-          <p class="font-semibold">Stan roślin (NDVI){{ n.date ? ', zdjęcie ' + n.date : '' }}</p>
-          <div class="mt-1 h-3 rounded-sm" [style.background]="ndviGradient()"></div>
-          <div class="mt-1 flex justify-between text-xs"><span>0 goła gleba</span><span>0,9 bujne rośliny</span></div>
+      @if (activeRaster(); as o) {
+        <div class="map-ndvi-bar" role="status">
+          <p class="font-semibold">{{ o.title }}{{ o.date ? ', zdjęcie ' + o.date : '' }}</p>
+          <div class="mt-1 h-3 rounded-sm" [style.background]="rasterGradient()"></div>
+          <div class="num mt-1 flex justify-between text-xs">
+            <span>{{ o.range[0] | number: '1.0-2' }}{{ o.unit }}</span><span>{{ o.range[1] | number: '1.0-2' }}{{ o.unit }}</span>
+          </div>
+          @if (o.description) {
+            <p class="mt-1 text-xs">{{ o.description }}</p>
+          }
         </div>
       }
     </div>

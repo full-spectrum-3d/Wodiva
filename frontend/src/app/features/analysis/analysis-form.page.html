@@ -92,6 +92,11 @@
                 {{ locating() ? 'Ustalam lokalizację…' : 'Użyj mojej lokalizacji' }}
               </button>
 
+              <label class="mt-3 flex items-center gap-2">
+                <input type="checkbox" class="size-5" [checked]="onlyAgricultural()" (change)="setOnlyAgricultural($event)" />
+                Tylko działki rolne (grunty orne, łąki, pastwiska, sady)
+              </label>
+
               <div id="parcel-status" aria-live="polite" class="mt-4">
                 @if (lookup(); as l) {
                   @if (l.state === 'loading') {
@@ -112,11 +117,18 @@
                           <dt class="text-text-muted">Numer</dt><dd class="font-mono">{{ l.parcel.number }}</dd>
                         }
                         <dt class="text-text-muted">Powierzchnia</dt><dd class="num">{{ l.parcel.area_ha | number: '1.0-2' }} ha</dd>
+                        <dt class="text-text-muted">Użytek (EGiB)</dt><dd>{{ agriculturalLabel(l.parcel) }}</dd>
                       </dl>
                       @if (l.parcel.is_agricultural === false) {
                         <p class="mt-3 rounded-sm border-l-4 border-level-watch-fill bg-level-watch-tint p-3 text-level-watch-text">
-                          To nie jest grunt rolny — raport pokaże ocenę wody, ale bez zaleceń nawadniania.
+                          @if (onlyAgricultural()) {
+                            To nie jest grunt rolny, więc raport byłby bez zaleceń nawadniania. Wybierz działkę rolną albo wyłącz „Tylko działki rolne”.
+                          } @else {
+                            To nie jest grunt rolny — raport pokaże ocenę wody, ale bez zaleceń nawadniania.
+                          }
                         </p>
+                      } @else if (l.parcel.is_agricultural === null) {
+                        <p class="mt-3 text-sm text-text-muted">Nie udało się potwierdzić w EGiB, czy to grunt rolny. Sprawdź to w wypisie z ewidencji.</p>
                       }
                     </div>
                   } @else if (l.state === 'error') {
