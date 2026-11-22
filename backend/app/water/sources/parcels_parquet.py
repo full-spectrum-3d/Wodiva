@@ -38,9 +38,7 @@ def region_url(parcel_id: str) -> str:
     return url
 
 
-def data_source(
-    status: SourceStatus = SourceStatus.ok, note: str | None = None, parcel_id: str = ""
-) -> DataSource:
+def data_source(status: SourceStatus = SourceStatus.ok, note: str | None = None, parcel_id: str = "") -> DataSource:
     url = region_url(parcel_id)
     return DataSource(
         name=f"EGiB – eksport działek {url.rsplit('/', 1)[-1]} (Geoportal opendata)",

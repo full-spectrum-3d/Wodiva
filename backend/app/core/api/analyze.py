@@ -94,9 +94,7 @@ async def run_analysis(req: AnalyzeRequest) -> Report:
         result = await asyncio.to_thread(water.compute, prep, slope, phase)
         interp = LandInterpretation()
         if land is not None:
-            interp = await asyncio.to_thread(
-                land.interpret, parcel, result.state, result.soil, result.irrigation, obs
-            )
+            interp = await asyncio.to_thread(land.interpret, parcel, result.state, result.soil, result.irrigation, obs)
         store["total"] = round(time.perf_counter() - started, 2)
         data = ReportInput(
             parcel=parcel,

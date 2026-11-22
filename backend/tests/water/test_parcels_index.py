@@ -54,8 +54,14 @@ def _latlon(geom):
 
 
 def _uldk_row(pid, geom):
-    return {"id": pid, "teryt": "143505_5", "commune": "Wyszków", "region": "Deskurów", "parcel": "999",
-            "geom_wkt": geom.wkt}
+    return {
+        "id": pid,
+        "teryt": "143505_5",
+        "commune": "Wyszków",
+        "region": "Deskurów",
+        "parcel": "999",
+        "geom_wkt": geom.wkt,
+    }
 
 
 async def test_index_finds_parcel_by_id_and_point(index):

@@ -55,14 +55,17 @@ def test_vci_needs_history_and_range():
     assert vci(0.8, [0.3, 0.7, 0.8]) == 1.0
 
 
-@pytest.mark.parametrize("crop,day,phase", [
-    ("pszenica_ozima", date(2024, 1, 10), "dormancy"),
-    ("pszenica_ozima", date(2024, 5, 20), "peak"),
-    ("pszenica_ozima", date(2024, 8, 10), "after_harvest"),
-    ("kukurydza_ziarno", date(2024, 6, 10), "vegetative"),
-    ("kukurydza_ziarno", date(2024, 8, 1), "peak"),
-    ("burak_cukrowy", date(2024, 3, 1), "before_sowing"),
-])
+@pytest.mark.parametrize(
+    "crop,day,phase",
+    [
+        ("pszenica_ozima", date(2024, 1, 10), "dormancy"),
+        ("pszenica_ozima", date(2024, 5, 20), "peak"),
+        ("pszenica_ozima", date(2024, 8, 10), "after_harvest"),
+        ("kukurydza_ziarno", date(2024, 6, 10), "vegetative"),
+        ("kukurydza_ziarno", date(2024, 8, 1), "peak"),
+        ("burak_cukrowy", date(2024, 3, 1), "before_sowing"),
+    ],
+)
 def test_phase_on(crop, day, phase):
     assert phenology.phase_on(crop, day) == phase
 
@@ -120,5 +123,6 @@ def test_runoff_risk_levels():
 
 def test_landsat_qa_mask_rejects_fill_cloud_shadow_snow():
     from app.land.sources.landsat import valid_from_qa
+
     qa = np.array([0, 21824, 21826, 21888, 22280, 23888, 30048], dtype=np.uint16)
     assert valid_from_qa(qa).tolist() == [False, True, False, True, False, False, False]
