@@ -17,7 +17,7 @@ HackNation 2026 · zadanie KOWR „Zatrzymaj wodę, chroń plony” · zespół 
 
 **Główne funkcjonalności.**
 
-1. Rolnik wskazuje działkę numerem ewidencyjnym albo kliknięciem na mapie, a potem wybiera uprawę i datę analizy.
+1. Rolnik wskazuje działkę na jeden z czterech sposobów: numerem ewidencyjnym, adresem domu, gminą z obrębem i numerem albo kliknięciem na mapie. Potem wybiera uprawę i datę analizy.
 2. Aplikacja ocenia wodę na działce. Liczy obecny zapas wody w glebie i to, jak często działka miała niedobór w ostatnich 10 latach.
 3. Pokazuje przyczyny niedoboru w milimetrach wody.
 4. Podaje rekomendacje w kolejności KOWR: retencja, potem agrotechnika, potem nawadnianie. Miejsca do zatrzymania wody zaznacza na mapie działki.
@@ -40,7 +40,7 @@ HackNation 2026 · zadanie KOWR „Zatrzymaj wodę, chroń plony” · zespół 
 | Wymaganie KOWR | Realizacja |
 | :--- | :--- |
 | 3.2 Aplikacja w przeglądarce, bez instalacji; telefon jako atut | interfejs webowy (Angular), układ od szerokości telefonu, WCAG 2.1 AA |
-| 3.3.2 Działka z numeru lub z mapy, dowolna w Polsce | `GET /api/parcel?id=` lub `?lat=&lon=`; źródła: lokalny indeks EGiB, potem ULDK, potem eksport EGiB z Geoportalu |
+| 3.3.2 Działka z numeru lub z mapy, dowolna w Polsce | `GET /api/parcel?id=` lub `?lat=&lon=`, `/api/parcel/region` (gmina, obręb, numer), `/api/parcel/address` (adres); źródła: lokalny indeks EGiB, potem ULDK, potem eksport EGiB z Geoportalu |
 | 3.3.3 Wybór uprawy | 14 upraw (`GET /api/crops`) |
 | 3.2 pkt 1 i 3.3.4 Ocena stanu wilgotności, bieżąca i z 10 lat | bilans wody w glebie FAO-56, KBW, SPI, percentyl wobec tej samej daty w 10 latach, stan roślin wobec 9 poprzednich lat |
 | 3.2 pkt 1a Interpretacja satelitarna zależna od uprawy | fazy rozwoju upraw: niski NDVI po zbiorze lub przed siewem nie jest liczony jako susza |
@@ -104,14 +104,20 @@ Interfejs działa pod `http://localhost:4200` i przekazuje `/api` do portu 8000.
 
 ### Dane przygotowane wcześniej
 
-**Kostka ERA5-Land** (historia meteo) jest w Git LFS (`backend/data/era5_land_pl.tar.gz`, ok. 1 GB):
+**Kostka ERA5-Land** (historia meteo, 01.01.2006–15.11.2026) jest w Git LFS (`backend/data/era5_land_pl.tar.gz`, ok. 1 GB). Rozpakuj ją z katalogu głównego repozytorium; trwa to ok. 1,5 min:
 
 ```bash
-cd backend
-mkdir -p var && tar -xzf data/era5_land_pl.tar.gz -C var
+git lfs install
+git lfs pull --include "backend/data/era5_land_pl.tar.gz"
+mkdir -p backend/var
+tar xzf backend/data/era5_land_pl.tar.gz -C backend/var
 ```
 
-Jeśli kostki nie ma, aplikacja bierze historię meteo z archiwum Open-Meteo. Działa to wolniej. Kostkę można też zbudować od zera, co wymaga `CDSAPI_KEY`:
+- Kostka trafi do `backend/var/era5_land_pl.zarr`, czyli tam, gdzie szuka jej backend.
+- Jeśli archiwum ma tylko kilkaset bajtów, LFS go nie pobrał. Uruchom wtedy dwie pierwsze linijki.
+- Bez kostki aplikacja bierze historię meteo z archiwum Open-Meteo, co trwa dłużej.
+
+Kostkę można też zbudować od zera. Wymaga to `CDSAPI_KEY`:
 
 ```bash
 python -m scripts.build_era5_cube --start 2006-01-01
@@ -143,8 +149,15 @@ Z odpowiedzi weź `id` i otwórz `http://localhost:8000/api/report/{id}.pdf`. Pa
 **Interfejs.**
 
 - Kreator ma trzy kroki: działka, data, uprawa. Obok jest mapa.
-- Działkę wybiera się numerem albo kliknięciem na mapie. Mapa pokazuje granice i numery działek oraz użytki z EGiB.
-- Opcja „Tylko działki rolne” jest domyślnie włączona i blokuje analizę gruntu nierolniczego.
+- Działkę można znaleźć na cztery sposoby:
+  - **Numer działki:** pełny identyfikator albo skrót „gmina, obręb numer”, np. `Bogatynia, Krzewina 134`.
+  - **Adres:** miejscowość, ulica i numer domu. Aplikacja znajduje działkę, na której stoi budynek. Pole obok wybiera się potem na mapie.
+  - **Gmina i obręb:** trzy osobne pola, tak jak w wypisie z ewidencji albo we wniosku o dopłaty.
+  - **Kliknięcie na mapie.**
+- Gdy pasuje kilka działek, aplikacja pokazuje listę do wyboru.
+- Mapa pokazuje granice i numery działek oraz użytki gruntowe z klasami gleb z EGiB, z legendą skrótów (R, Ł, Ps, S…).
+- Każdą mapę można otworzyć na pełnym ekranie.
+- Opcja „Tylko działki rolne” jest domyślnie włączona. Blokuje analizę gruntu nierolniczego i działki, której użytku ewidencja nie podaje.
 - Podkłady mapy: OpenStreetMap, ortofotomapa GUGiK i cieniowany model terenu GUGiK.
 - Raport ma zakładki w kolejności KOWR: ocena, przyczyny, retencja, agrotechnika, nawadnianie, źródła.
 - Mapa raportu pokazuje:
@@ -203,7 +216,7 @@ Z odpowiedzi weź `id` i otwórz `http://localhost:8000/api/report/{id}.pdf`. Pa
 przeglądarka ── Angular 22 + Leaflet (frontend/) ── nginx ── /api ── FastAPI (backend/)
 
 POST /api/analyze
-  ├─ water.parcel       działka: indeks EGiB → ULDK → eksport EGiB; użytki EGiB
+  ├─ water.parcel       działka: indeks EGiB → ULDK → eksport EGiB; adres → UUG → punkt; użytki EGiB
   ├─ równolegle:
   │    water.prepare    meteo (ERA5 + Open-Meteo + IMGW), gleba (SoilGrids, IUNG)
   │    land.observe     Sentinel-2, Landsat, Sentinel-1, NMT, BDOT10k, PIG-PIB, EDO (limit 20 s)
@@ -222,6 +235,7 @@ POST /api/analyze
 | Kategoria | Dane | Źródło | Zakres | Licencja |
 | :--- | :--- | :--- | :--- | :--- |
 | Przestrzenne | Granica i identyfikator działki | ULDK GUGiK; eksport EGiB `0_dzialki.parquet` (Geoportal opendata) | cała Polska | dane PZGiK, bezpłatne |
+| Przestrzenne | Położenie adresu (wyszukiwanie po adresie) | UUG GUGiK – usługa geokodowania (PRG) | cała Polska | dane PZGiK, bezpłatne |
 | Przestrzenne | Użytki gruntowe | EGiB: klasoużytki z eksportu, WMS KIEG | cała Polska | dane PZGiK |
 | Przestrzenne | Rzeźba terenu | NMT GUGiK (usługa wysokości); zapas Copernicus DEM GLO-30 | siatka 2–6 m; zapas 30 m | dane PZGiK; Copernicus DEM z podaniem źródła |
 | Przestrzenne | Pokrycie terenu | BDOT10k (WMS Geoportalu) | 500 m od działki | dane PZGiK |
@@ -243,8 +257,8 @@ POST /api/analyze
 
 | Dane | Tryb | Data pobrania |
 | :--- | :--- | :--- |
-| ULDK, KIEG, Open-Meteo, IMGW-PIB, SoilGrids, Sentinel-2, Landsat, Sentinel-1, NMT, BDOT10k, PIG-PIB, EDO | pobierane przy każdej analizie, z pamięcią podręczną | data i godzina przy każdym źródle w raporcie |
-| Kostka ERA5-Land (`backend/data/era5_land_pl.tar.gz`) | pobrana wcześniej z Copernicus CDS, aktualizowana codziennie przez `update_era5` | 21–22.11.2026; koniec kostki: `GET /api/health` |
+| ULDK, UUG, KIEG, Open-Meteo, IMGW-PIB, SoilGrids, Sentinel-2, Landsat, Sentinel-1, NMT, BDOT10k, PIG-PIB, EDO | pobierane przy każdej analizie, z pamięcią podręczną | data i godzina przy każdym źródle w raporcie |
+| Kostka ERA5-Land (`backend/data/era5_land_pl.tar.gz`) | pobrana wcześniej z Copernicus CDS, aktualizowana codziennie przez `update_era5` | pobrana 21–22.11.2026; zakres 01.01.2006–15.11.2026 (7624 dni); aktualny koniec: `GET /api/health` |
 | Indeks działek EGiB (`data/dzialki_indeks/`, opcjonalny) | pobrany wcześniej z Geoportalu skryptem `dzialki_index.py` | data eksportu przy źródle „EGiB – lokalny indeks” w raporcie |
 | Progi KBW, parametry upraw, stacje IMGW, fenologia, reguły, rejestr źródeł (`backend/data/`) | przygotowane wcześniej przez zespół | 21.11.2026 |
 
@@ -279,7 +293,8 @@ Wynik i rekomendacje zawsze liczy aplikacja, z tych danych, w chwili analizy. Dl
 **AI w aplikacji.**
 
 - Kolba korzysta z modelu Bielik 4.5B uruchomionego lokalnie w Ollama (`WODIVA_ASSISTANT_PROVIDER=ollama`). Model jest bezpłatny i polski, a dane nie wychodzą poza serwer.
-- Model dostaje fakty z raportu, rejestr źródeł naukowych i kilka ostatnich wiadomości rozmowy. Nie liczy nowych wyników.
+- Model dostaje skrócone fakty z raportu i kilka ostatnich wiadomości rozmowy. Nie liczy nowych wyników. Odpowiada krótko, do 250 tokenów, przy kontekście 3072 tokenów.
+- Backend ładuje model do pamięci przy starcie i trzyma go tam przez 2 godziny (`keep_alive`). Po otwarciu okna Kolby przygotowuje model dla danego raportu (`POST /api/assistant/prepare`), więc pierwsza odpowiedź przychodzi szybciej.
 - Gdy model jest niedostępny, Kolba odpowiada bez modelu, regułami z raportu: o przyczynach, pierwszych krokach, nawadnianiu, retencji, glebie, opadach, satelicie, wodach podziemnych, dopłatach i pozwoleniach.
 - Opcjonalnie można włączyć Claude API (`WODIVA_ASSISTANT_PROVIDER=anthropic` i `ANTHROPIC_API_KEY`). To usługa płatna, opisana w sekcji 7.
 - Ocena, przyczyny, rekomendacje i nawadnianie są liczone bez AI. Uczenie maszynowe nie jest używane.
@@ -296,7 +311,7 @@ Wynik i rekomendacje zawsze liczy aplikacja, z tych danych, w chwili analizy. Dl
   - własna instancja Open-Meteo.
 - **Asystent** w domyślnej konfiguracji nic nie kosztuje: działa na lokalnym modelu, a awaryjnie bez modelu. Claude API jest opcją płatną za użycie, według cennika Anthropic. Jedno pytanie zużywa ok. 10 tys. tokenów wejścia i 1–2 tys. tokenów wyjścia.
 - **CDS (ERA5)** wymaga bezpłatnego konta.
-- **Serwer prototypu** to 4 vCPU, 8 GB RAM i 40 GB dysku. Ten rozmiar wynika z modelu Bielik i indeksu działek. Koszt to ok. 60–150 zł miesięcznie (VPS w UE).
+- **Serwer prototypu** to 8 vCPU, 16 GB RAM i ok. 80 GB dysku. Mieści backend, interfejs, model Bielik na CPU, kostkę ERA5 i indeks działek. Koszt to orientacyjnie 100–200 zł miesięcznie (VPS w UE). Szybsze odpowiedzi asystenta daje serwer z GPU, który kosztuje od kilkuset zł miesięcznie wzwyż.
 - **Usługi pomocnicze interfejsu** mają ograniczenia:
   - Kafelki OpenStreetMap: dane na licencji ODbL, serwer według Tile Usage Policy, nie do dużego ruchu.
   - Google Fonts: przeglądarka łączy się z Google. Przy wdrożeniu czcionki można dołączyć do aplikacji.
@@ -325,9 +340,12 @@ Wynik i rekomendacje zawsze liczy aplikacja, z tych danych, w chwili analizy. Dl
   - Wody podziemne opisują punkty monitoringu do 15 km od działki, nie pomiar na działce.
   - CDI z EDO opisuje region, nie działkę.
 - **Działki:**
+  - Wyszukiwanie po adresie znajduje działkę z budynkiem. Pole uprawne bywa obok, więc wtedy trzeba je kliknąć na mapie.
   - Indeks EGiB jest aktualny na dzień pobrania. Działek spoza indeksu aplikacja szuka w ULDK.
   - Udziały klasoużytków z indeksu są przybliżone, bo eksport nie podaje ich powierzchni.
-- **Asystent:** mały lokalny model może się mylić w wiedzy ogólnej. Liczby o działce bierze z raportu.
+- **Asystent:**
+  - Mały lokalny model może się mylić w wiedzy ogólnej. Liczby o działce bierze z raportu.
+  - Na serwerze bez GPU odpowiedź trwa do kilkudziesięciu sekund. Po 150 s Kolba odpowiada bez modelu.
 - **Ogólne:**
   - Raport nie zastępuje oględzin pola.
   - Nie uwzględnia drenowania, wcześniejszego nawadniania, chorób ani szkodników.
@@ -381,7 +399,7 @@ Wynik i rekomendacje zawsze liczy aplikacja, z tych danych, w chwili analizy. Dl
 ## 11. Bezpieczeństwo
 
 - Aplikacja nie ma kont użytkowników i nie zbiera danych osobowych. ULDK i EGiB zwracają tylko geometrię, identyfikator i użytki działki, bez danych właściciela.
-- Dane wejściowe są walidowane: format identyfikatora, zakres daty (ostatnie 10 lat, nie z przyszłości), lista upraw, identyfikator raportu i tekst wyszukiwania.
+- Dane wejściowe są walidowane: format identyfikatora, zakres daty (ostatnie 10 lat, nie z przyszłości), lista upraw i identyfikator raportu. Adres, gmina i obręb mają ograniczoną długość i nie mogą zawierać znaków specjalnych.
 - Limity zapytań:
   - limit na IP dla analizy, wyszukiwania i asystenta;
   - dzienny limit pytań do asystenta i limit na jeden raport;
