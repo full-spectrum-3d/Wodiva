@@ -1,11 +1,15 @@
+import re
+
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core.schemas import DataSource, Parcel
 from app.core.validation import InputError
 from app.water.engine.crops import load_crops
 from app.water.parcel import ParcelLookupError, resolve_by_id, resolve_by_point
+from app.water.sources import parcels_parquet
 
 router = APIRouter()
+SEARCH_TEXT = re.compile(r"[\w .,/-]*")
 
 
 @router.get("/parcel")
@@ -29,6 +33,22 @@ async def parcel(
         "parcel": Parcel.model_validate(found),
         "sources": [DataSource.model_validate(s) for s in sources],
     }
+
+
+@router.get("/parcels/search")
+async def parcels_search(
+    gmina: str = Query(..., min_length=3, max_length=60),
+    obreb: str = Query("", max_length=60),
+    numer: str = Query("", max_length=20),
+    limit: int = Query(20, ge=1, le=20),
+) -> list[dict]:
+    values = [value.strip() for value in (gmina, obreb, numer)]
+    if not all(SEARCH_TEXT.fullmatch(value) for value in values) or len(values[0]) < 3:
+        raise HTTPException(422, "Wpisz co najmniej 3 litery nazwy gminy, bez znaków specjalnych.")
+    try:
+        return await parcels_parquet.search(*values, limit)
+    except LookupError as exc:
+        raise HTTPException(503, "Wyszukiwarka działek jest niedostępna: brak lokalnego indeksu.") from exc
 
 
 @router.get("/crops")

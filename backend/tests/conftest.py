@@ -56,3 +56,10 @@ def offline_assistant(monkeypatch):
     from app.land.settings import land_settings
 
     monkeypatch.setattr(land_settings(), "ollama_url", "")
+
+
+@pytest.fixture(autouse=True)
+def no_parcel_index(monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "parcels_index_dir", None)

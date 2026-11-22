@@ -85,15 +85,28 @@ def _candidates(rows: list[dict]) -> list[dict]:
     ]
 
 
-async def resolve_by_id(raw_id: str, with_land_use: bool = True) -> tuple[Parcel, list[DataSource]]:
-    parcel_id = normalize_parcel_id(raw_id)
-    sources: list[DataSource] = []
+async def _from_index(lookup, *args) -> dict | None:
+    if parcels_parquet.index_dir() is None:
+        return None
+    try:
+        return await lookup(*args)
+    except Exception as exc:
+        log.warning("local parcel index failed: %s", exc)
+        return None
+
+
+def _indexed(row: dict, sources: list[DataSource]) -> Parcel:
+    sources.append(parcels_parquet.index_source(row))
+    return build_parcel(row, parcels_parquet.INDEX_NAME)
+
+
+async def _remote_by_id(parcel_id: str, sources: list[DataSource]) -> Parcel:
     try:
         rows = await uldk.by_id(parcel_id)
         if len(rows) > 1 and not is_full_parcel_id(parcel_id):
             raise ParcelLookupError("Znaleziono kilka działek – wybierz właściwą.", _candidates(rows))
-        parcel = build_parcel(rows[0], "ULDK")
         sources.append(uldk.data_source())
+        return build_parcel(rows[0], "ULDK")
     except uldk.ParcelNotFound as exc:
         sources.append(uldk.data_source(SourceStatus.missing, str(exc)))
         if not is_full_parcel_id(parcel_id):
@@ -105,8 +118,15 @@ async def resolve_by_id(raw_id: str, with_land_use: bool = True) -> tuple[Parcel
             row = None
         if row is None:
             raise ParcelLookupError(f"Nie znaleziono działki {parcel_id} (ULDK i EGiB parquet).") from exc
-        parcel = build_parcel(row, "EGiB parquet")
         sources.append(parcels_parquet.data_source(parcel_id=parcel_id))
+        return build_parcel(row, "EGiB parquet")
+
+
+async def resolve_by_id(raw_id: str, with_land_use: bool = True) -> tuple[Parcel, list[DataSource]]:
+    parcel_id = normalize_parcel_id(raw_id)
+    sources: list[DataSource] = []
+    row = await _from_index(parcels_parquet.index_by_id, parcel_id) if is_full_parcel_id(parcel_id) else None
+    parcel = _indexed(row, sources) if row is not None else await _remote_by_id(parcel_id, sources)
     if with_land_use:
         parcel = await _with_land_use(parcel, sources)
     return parcel, sources
@@ -115,12 +135,16 @@ async def resolve_by_id(raw_id: str, with_land_use: bool = True) -> tuple[Parcel
 async def resolve_by_point(lat: float, lon: float, with_land_use: bool = True) -> tuple[Parcel, list[DataSource]]:
     validate_lat_lon(lat, lon)
     sources: list[DataSource] = []
-    try:
-        rows = await uldk.by_xy(lat, lon)
-    except uldk.ParcelNotFound as exc:
-        raise ParcelLookupError(f"Nie znaleziono działki w tym miejscu: {exc}") from exc
-    parcel = build_parcel(rows[0], "ULDK")
-    sources.append(uldk.data_source())
+    row = await _from_index(parcels_parquet.index_by_point, lat, lon)
+    if row is not None:
+        parcel = _indexed(row, sources)
+    else:
+        try:
+            rows = await uldk.by_xy(lat, lon)
+        except uldk.ParcelNotFound as exc:
+            raise ParcelLookupError(f"Nie znaleziono działki w tym miejscu: {exc}") from exc
+        parcel = build_parcel(rows[0], "ULDK")
+        sources.append(uldk.data_source())
     if with_land_use:
         parcel = await _with_land_use(parcel, sources)
     return parcel, sources

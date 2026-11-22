@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
         "https://opendata.geoportal.gov.pl/InneDane/latest_exports/eziudp_wfs/PARQUET/0_dzialki.parquet"
     )
     parcels_parquet_local: Path | None = None
+    parcels_index_dir: Path | None = Field(
+        None, validation_alias=AliasChoices("WODIVA_PARCELS_INDEX_DIR", "PARCELS_INDEX_DIR")
+    )
     rate_limit_per_minute: int = 30
     analysis_years: int = 10
     http_timeout_s: float = 12.0

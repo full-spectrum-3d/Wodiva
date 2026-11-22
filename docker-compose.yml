@@ -7,8 +7,10 @@ services:
       CACHE_PATH: /app/var/cache.sqlite
       # domyślnie Ollama z compose; inny serwer (np. Ollama na hoście z GPU) ustaw w .env
       WODIVA_OLLAMA_URL: ${WODIVA_OLLAMA_URL:-http://ollama:11434}
+      WODIVA_PARCELS_INDEX_DIR: /data/dzialki_indeks
     volumes:
       - wodiva-var:/app/var
+      - ./data/dzialki_indeks:/data/dzialki_indeks:ro
     ports:
       # tylko z tego hosta: z zewnątrz API idzie przez nginx, który nadpisuje X-Forwarded-For
       - "127.0.0.1:8000:8000"
