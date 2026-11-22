@@ -1,7 +1,6 @@
 import asyncio
 import hashlib
 import hmac
-import os
 import re
 import secrets
 from datetime import date
@@ -371,12 +370,10 @@ WARM_UP_TRIES = 5
 
 def _ollama_options(**extra) -> dict:
     settings = land_settings()
-    return {
-        "num_ctx": settings.ollama_num_ctx,
-        "num_thread": settings.ollama_num_thread or os.cpu_count() or 1,
-        "use_mmap": settings.ollama_use_mmap,
-        **extra,
-    }
+    options = {"num_ctx": settings.ollama_num_ctx, "use_mmap": settings.ollama_use_mmap, **extra}
+    if settings.ollama_num_thread:
+        options["num_thread"] = settings.ollama_num_thread
+    return options
 
 
 def _ollama_payload(report: Report, messages: list[dict], num_predict: int | None = None) -> dict:
