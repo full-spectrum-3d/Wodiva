@@ -7,6 +7,8 @@ from app.land.models import Cause, LandResult, Level
 from app.land.recommend.rules import months_label
 
 RISK_FREQ = 0.5
+# Trwałe użytki zielone: bez orki, siewu, międzyplonów i resztek pożniwnych.
+GRASSLAND = {"uzytki_zielone"}
 
 
 def scenario_text(scenarios: list[ScenarioResult], code: str) -> str:
@@ -55,6 +57,9 @@ def build(
 ) -> dict[str, Any]:
     ctx: dict[str, Any] = {
         "crop": crop,
+        "grassland": crop in GRASSLAND,
+        "arable": crop not in GRASSLAND,
+        "contour_tip": "" if crop in GRASSLAND else ", a uprawę i siew prowadź w poprzek stoku",
         "phase": phenology.phase_on(crop, day),
         "month": day.month,
         "risk_level": risk_level.value if risk_level else None,
@@ -106,7 +111,9 @@ def build(
     gw = h.groundwater if h is not None else None
     if gw:
         body = gw.get("body") or {}
-        ctx["gw_quantity_poor"] = body.get("quantitative_status") == "słaby" or body.get("risk") == "zagrożona"
+        poor = body.get("quantitative_status") == "słaby"
+        ctx["gw_quantity_poor"] = poor
+        ctx["gw_at_risk"] = not poor and body.get("risk") == "zagrożona"
         ctx["jcwpd_code"] = body.get("code")
         ctx["jcwpd_quantity"] = body.get("quantitative_status")
         ctx["jcwpd_risk"] = body.get("risk")

@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 from app.core.schemas import WaterState
+from app.land.engine import phenology
 from app.land.models import DataStatus, LandResult, Level
 from app.land.recommend.context import risk_months
 from app.land.recommend.rules import months_label
@@ -12,6 +13,26 @@ HEADLINES = {
     Level.medium: "Na działce występuje podwyższone ryzyko suszy rolniczej.",
     Level.low: "Na działce nie ma obecnie oznak suszy rolniczej.",
 }
+# Poza okresem wegetacji susza rolnicza nie występuje (IUNG-PIB ocenia ją w sezonie wegetacyjnym).
+# Niski zapas wody i deficyt opadów to wtedy ryzyko wejścia w kolejny sezon z niedoborem, nie susza.
+OFF_SEASON = {"dormancy", "after_harvest", "before_sowing"}
+OFF_SEASON_HEADLINES = {
+    Level.medium: (
+        "Uprawa jest poza okresem wegetacji ({phase}), więc susza rolnicza teraz nie występuje. "
+        "Zapas wody w glebie lub opady są jednak poniżej normy: jest podwyższone ryzyko, "
+        "że uprawa wejdzie w kolejny sezon z niedoborem wody."
+    ),
+    Level.low: (
+        "Uprawa jest poza okresem wegetacji ({phase}). Na działce nie ma oznak niedoboru wody przed kolejnym sezonem."
+    ),
+}
+
+
+def crop_phase(water: WaterState) -> str | None:
+    try:
+        return phenology.phase_on(water.crop, water.analysis_date)
+    except KeyError:
+        return None
 
 
 @dataclass
@@ -70,6 +91,9 @@ def risk_score(water: WaterState, land: LandResult) -> float:
     return points
 
 
+LEVEL_ORDER = [Level.low, Level.medium, Level.high]
+
+
 def level_from(points: float) -> Level:
     if points >= 5:
         return Level.high
@@ -86,6 +110,11 @@ def assess(water: WaterState | None, land: LandResult) -> Assessment:
             "Nie udało się ocenić sytuacji wodnej działki: brak bilansu wodnego. Bez oceny nie wydajemy rekomendacji.",
         )
     level = level_from(risk_score(water, land))
+    headline = HEADLINES[level]
+    phase = crop_phase(water)
+    if phase in OFF_SEASON:
+        level = min(level, Level.medium, key=LEVEL_ORDER.index)
+        headline = OFF_SEASON_HEADLINES[level].format(phase=phenology.PHASE_LABELS[phase])
     findings: list[str] = []
     sw = water.soil_water
     if sw is not None:
@@ -135,4 +164,4 @@ def assess(water: WaterState | None, land: LandResult) -> Assessment:
         findings.append(groundwater)
     parts = (land.satellite, land.radar, land.terrain, land.hydro, land.drought)
     status = DataStatus.partial if any(p is None or p.status == DataStatus.missing for p in parts) else DataStatus.ok
-    return Assessment(status, level, HEADLINES[level], findings)
+    return Assessment(status, level, headline, findings)

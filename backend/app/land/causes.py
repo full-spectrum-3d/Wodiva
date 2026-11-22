@@ -153,7 +153,11 @@ def landscape(land: LandResult) -> Cause:
         f"zadrzewienia {h.tree_cover_pct_500m:.0f}% powierzchni"
     )
     if h.ditch_distance_m is not None:
-        text += f"; najbliższy rów melioracyjny ok. {h.ditch_distance_m:.0f} m"
+        text += (
+            "; rów melioracyjny na działce lub przy jej granicy"
+            if h.ditch_distance_m <= 5
+            else f"; najbliższy rów melioracyjny ok. {h.ditch_distance_m:.0f} m"
+        )
     return Cause(
         key="krajobraz",
         label="Brak retencji w krajobrazie",

@@ -27,7 +27,7 @@ rules:
     title: Spowolnij spływ na linii spływu
     action: >-
       Na linii, którą woda spływa przez działkę (zaznaczona na mapie, ok. {flow_path_length_m} m), załóż pas zadarniony
-      lub pas buforowy w poprzek spływu, a uprawę i siew prowadź w poprzek stoku.
+      lub pas buforowy w poprzek spływu{contour_tip}.
     rationale: >-
       Średni spadek {mean_slope_pct}% i skupiony spływ z ok. {channel_area_ha} ha: część opadu odpływa z działki zamiast wsiąkać w glebę.
     causes: [splyw]
@@ -40,6 +40,7 @@ rules:
       all:
         - {field: runoff_risk, op: eq, value: wysoka}
         - {field: channel_in_parcel, op: is_false}
+        - {field: arable, op: is_true}
     title: Ogranicz spływ na stoku
     action: >-
       Prowadź uprawę w poprzek stoku i utrzymuj miedze lub pasy trawy na dolnej granicy działki.
@@ -122,10 +123,29 @@ rules:
     causes: [krajobraz]
     evidence: [E04, E06, E22, E23]
 
+  - key: RET_GROUNDWATER_RISK
+    category: retencja
+    priority: 2
+    when:
+      all:
+        - {field: gw_at_risk, op: is_true}
+    title: Oszczędzaj wody podziemne
+    action: >-
+      Stan ilościowy wód podziemnych w tym rejonie jest dobry, ale ta część wód jest zagrożona nieosiągnięciem
+      celów środowiskowych. Zatrzymuj wodę opadową na działce i w rowach, a pobór wód podziemnych do nawadniania
+      traktuj jako ostatnią możliwość; każdy nowy pobór uzgadniaj (zgłoszenie lub pozwolenie wodnoprawne).
+    rationale: >-
+      Jednolita część wód podziemnych {jcwpd_code}: stan ilościowy {jcwpd_quantity}, ryzyko {jcwpd_risk} (PIG-PIB).
+      Retencja na działce zasila płytkie wody gruntowe i zmniejsza presję poboru.
+    causes: [krajobraz]
+    evidence: [E04, E06, E22, E23]
+
   - key: AGR_COVER
     category: agrotechnika
     priority: 1
     when:
+      all:
+        - {field: arable, op: is_true}
       any:
         - {field: risk_level, op: in, value: [średnia, wysoka]}
         - {field: cause_gleba, op: is_true}
@@ -145,6 +165,7 @@ rules:
     when:
       all:
         - {field: cause_gleba, op: is_true}
+        - {field: arable, op: is_true}
     title: Zwiększ zawartość próchnicy
     action: >-
       Wnoś materię organiczną: obornik, kompost, przyoranie słomy. Więcej próchnicy to więcej wody zatrzymanej w glebie.
@@ -157,6 +178,8 @@ rules:
     category: agrotechnika
     priority: 2
     when:
+      all:
+        - {field: arable, op: is_true}
       any:
         - {field: cause_parowanie, op: is_true}
         - {field: cause_splyw, op: is_true}
@@ -174,6 +197,7 @@ rules:
     when:
       all:
         - {field: runoff_risk, op: in, value: [średnia, wysoka]}
+        - {field: arable, op: is_true}
     title: Uprawa w poprzek stoku
     action: Orkę, siew i przejazdy prowadź w poprzek spadku terenu, żeby bruzdy zatrzymywały wodę zamiast ją odprowadzać.
     rationale: Średni spadek terenu na działce to {mean_slope_pct}%.
@@ -198,6 +222,7 @@ rules:
     when:
       all:
         - {field: deficit_share, op: ge, value: 0.4}
+        - {field: arable, op: is_true}
     title: Odmiany i termin siewu odporniejsze na suszę
     action: >-
       Przy kolejnym siewie wybieraj odmiany o większej tolerancji na suszę (lista odmian zalecanych w województwie)
@@ -212,8 +237,71 @@ rules:
     when:
       all:
         - {field: risk_level, op: eq, value: niska}
+        - {field: arable, op: is_true}
     title: Utrzymaj obecne praktyki
     action: Obecnie nie ma oznak niedoboru wody. Utrzymuj okrywę gleby i resztki pożniwne, żeby zachować zapas wody na okres ryzyka.
+    rationale: Bilans wodny i wskaźniki satelitarne nie pokazują niedoboru w dacie analizy.
+    causes: []
+    evidence: [E12]
+
+  - key: AGR_GRASS_SWARD
+    category: agrotechnika
+    priority: 1
+    when:
+      all:
+        - {field: grassland, op: is_true}
+      any:
+        - {field: risk_level, op: in, value: [średnia, wysoka]}
+        - {field: cause_parowanie, op: is_true}
+        - {field: deficit_share, op: ge, value: 0.3}
+    title: Zwarta darń i wyższe koszenie
+    action: >-
+      Koś i spasaj nie niżej niż na wysokość ok. 5–7 cm, a w okresie suszy nie przepasaj łąki. Wyższa ruń zacienia
+      glebę, a zwarta darń lepiej przyjmuje opady. Ubytki w darni uzupełniaj podsiewem zamiast zaorywać łąkę.
+    rationale: Okrywa roślinna przez cały rok ogranicza parowanie z gleby i spływ wody opadowej.
+    causes: [parowanie, splyw]
+    evidence: [E04, E12, E21]
+    ecoscheme: "Ekoschemat „Rolnictwo węglowe”: ekstensywne użytkowanie trwałych użytków zielonych z obsadą zwierząt (warunki w aktualnym naborze ARiMR)"
+
+  - key: AGR_GRASS_ORGANIC
+    category: agrotechnika
+    priority: 1
+    when:
+      all:
+        - {field: grassland, op: is_true}
+        - {field: cause_gleba, op: is_true}
+    title: Nawożenie naturalne użytku zielonego
+    action: >-
+      Stosuj obornik lub kompost na łące w terminach dozwolonych programem azotanowym. Materia organiczna
+      zwiększa ilość wody, którą gleba pod darnią zatrzymuje dla traw.
+    rationale: Gleba magazynuje ok. {awc_mm} mm wody dostępnej dla roślin; wzrost zawartości próchnicy zwiększa pojemność wodną.{scenario_organic}
+    causes: [gleba]
+    evidence: [E07, E12]
+
+  - key: AGR_GRASS_SLOPE
+    category: agrotechnika
+    priority: 2
+    when:
+      all:
+        - {field: grassland, op: is_true}
+        - {field: runoff_risk, op: in, value: [średnia, wysoka]}
+    title: Nie zaorywuj łąki na stoku
+    action: >-
+      Utrzymuj trwałą darń na tej działce. Przy odnawianiu łąki stosuj podsiew bez orki, a przejazdy ciężkim sprzętem
+      ogranicz do okresów, gdy gleba jest sucha.
+    rationale: Średni spadek terenu na działce to {mean_slope_pct}%. Trwała darń na stoku zatrzymuje wodę i chroni glebę przed erozją.{scenario_runoff}
+    causes: [splyw]
+    evidence: [E05, E12]
+
+  - key: AGR_GRASS_KEEP
+    category: agrotechnika
+    priority: 3
+    when:
+      all:
+        - {field: grassland, op: is_true}
+        - {field: risk_level, op: eq, value: niska}
+    title: Utrzymaj obecne praktyki
+    action: Obecnie nie ma oznak niedoboru wody. Utrzymuj zwartą darń i umiarkowaną wysokość koszenia, żeby zachować zapas wody na okres ryzyka.
     rationale: Bilans wodny i wskaźniki satelitarne nie pokazują niedoboru w dacie analizy.
     causes: []
     evidence: [E12]

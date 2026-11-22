@@ -96,6 +96,43 @@ def _table(rows: list[list[str]], widths, regular: str, bold: str) -> Table:
     return table
 
 
+VOIVODESHIP_NAMES = {
+    "02": "dolnośląskie",
+    "04": "kujawsko-pomorskie",
+    "06": "lubelskie",
+    "08": "lubuskie",
+    "10": "łódzkie",
+    "12": "małopolskie",
+    "14": "mazowieckie",
+    "16": "opolskie",
+    "18": "podkarpackie",
+    "20": "podlaskie",
+    "22": "pomorskie",
+    "24": "śląskie",
+    "26": "świętokrzyskie",
+    "28": "warmińsko-mazurskie",
+    "30": "wielkopolskie",
+    "32": "zachodniopomorskie",
+}
+
+
+def place_line(p) -> str:
+    """Gmina, powiat, województwo i obręb bez pustych pól; województwo z kodu TERYT, gdy źródło go nie podaje."""
+    voivodeship = p.voivodeship or VOIVODESHIP_NAMES.get((p.id or "")[:2])
+    if voivodeship and not voivodeship.startswith("woj"):
+        voivodeship = f"woj. {voivodeship}"
+    place = ", ".join(part for part in (p.commune, p.county and f"pow. {p.county}", voivodeship) if part)
+    parts = [place] if place else []
+    if p.region:
+        parts.append(f"obręb {p.region}")
+    parts.append(f"{p.area_ha:.2f} ha")
+    return " · ".join(parts)
+
+
+def causes_title(level: str | None) -> str:
+    return "2. Przyczyny niedoboru wody" if level in ("średnia", "wysoka") else "2. Co ogranicza zapas wody na działce"
+
+
 def render(report: Report, map_png: bytes | None) -> bytes:
     st = _styles()
     regular, bold = fonts()
@@ -120,11 +157,7 @@ def render(report: Report, map_png: bytes | None) -> bytes:
             [
                 [_p(f"Działka: {p.id}", st["p"]), _qr(url)],
                 [
-                    _p(
-                        f"{p.commune or ''}, {p.county or ''}, {p.voivodeship or ''} · obręb "
-                        f"{p.region or '-'} · {p.area_ha:.2f} ha",
-                        st["p"],
-                    ),
+                    _p(place_line(p), st["p"]),
                     "",
                 ],
                 [
@@ -143,7 +176,7 @@ def render(report: Report, map_png: bytes | None) -> bytes:
         _p(summary.headline, st["lead"]),
     ]
     story += [_p(f"• {f}", st["p"]) for f in summary.findings]
-    story.append(_p("2. Przyczyny niedoboru wody", st["h"]))
+    story.append(_p(causes_title(summary.risk_level), st["h"]))
     if not report.causes:
         story.append(_p("Nie wskazano przyczyn niedoboru wody (brak oceny albo brak niedoboru).", st["p"]))
     for cause in report.causes:
@@ -200,7 +233,7 @@ def render(report: Report, map_png: bytes | None) -> bytes:
         _p(
             (
                 "Raport wygenerowany automatycznie przez aplikację Wodiva na podstawie danych pobranych w chwili "
-                "analizy. Rejestr źródeł naukowych (E01–E22): /api/evidence."
+                "analizy. Rejestr źródeł naukowych (E01–E23): /api/evidence."
             ),
             st["small"],
         )

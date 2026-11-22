@@ -353,7 +353,7 @@ Wynik i rekomendacje zawsze liczy aplikacja, z tych danych, w chwili analizy. Dl
 
 ## 9. Weryfikacja wyników
 
-- **Testy automatyczne** (`cd backend && pytest`): 156 testów, bez sieci. Obejmują:
+- **Testy automatyczne** (`cd backend && pytest`): 173 testy, bez sieci. Obejmują:
   - ET0 na przykładzie 18 z FAO-56;
   - pedotransfer wobec tabel Saxton i Rawls;
   - bilans masy modelu wody;
@@ -362,6 +362,7 @@ Wynik i rekomendacje zawsze liczy aplikacja, z tych danych, w chwili analizy. Dl
   - wyostrzanie pasm Sentinel-2 i wagi pikseli;
   - analizę terenu na syntetycznym NMT;
   - kolejność etapów;
+  - rekomendacje zależne od uprawy (łąki bez orki i międzyplonów) i ocena ryzyka poza okresem wegetacji;
   - PDF;
   - API;
   - indeks działek.
