@@ -7,7 +7,7 @@ HackNation 2026 · zadanie KOWR „Zatrzymaj wodę, chroń plony” · zespół 
 | Aplikacja | [Otwórz aplikację](https://mutual-submitted-clothes-buck.trycloudflare.com/) |
 | Instrukcja uruchomienia | [sekcja 1](#1-uruchomienie) |
 | Repozytorium (prywatne) | [github.com/full-spectrum-3d/Wodiva](https://github.com/full-spectrum-3d/Wodiva) |
-| Prezentacja PDF (do 10 slajdów) | (`Wodiva_prezentacja_FullSpectrum%203D.pdf`) |
+| Prezentacja PDF (do 10 slajdów) | `Wodiva_prezentacja_FullSpectrum%203D.pdf` |
 | Film z działania (do 3 min) | [Film na YouTube](https://www.youtube.com/watch?v=WzY-wvdYbRY) |
 | Raporty wygenerowane przez prototyp | `docs/raporty/` |
 
@@ -311,7 +311,7 @@ Wynik i rekomendacje zawsze liczy aplikacja, z tych danych, w chwili analizy. Dl
   - własna instancja Open-Meteo.
 - **Asystent** w domyślnej konfiguracji nic nie kosztuje: działa na lokalnym modelu, a awaryjnie bez modelu. Claude API jest opcją płatną za użycie, według cennika Anthropic. Jedno pytanie zużywa ok. 10 tys. tokenów wejścia i 1–2 tys. tokenów wyjścia.
 - **CDS (ERA5)** wymaga bezpłatnego konta.
-- **Serwer prototypu** to 8 vCPU, 16 GB RAM i ok. 80 GB dysku. Mieści backend, interfejs, model Bielik na CPU, kostkę ERA5 i indeks działek. Koszt to orientacyjnie 100–200 zł miesięcznie (VPS w UE). Szybsze odpowiedzi asystenta daje serwer z GPU, który kosztuje od kilkuset zł miesięcznie wzwyż.
+- **Serwer prototypu** to 8 vCPU, 16 GB RAM i ok. 80 GB dysku. Mieści backend, interfejs, model Bielik na CPU, kostkę ERA5 i indeks działek. Koszt to 0 zł miesięcznie. Szybsze odpowiedzi asystenta daje serwer z GPU, który kosztuje od kilkuset zł miesięcznie wzwyż.
 - **Usługi pomocnicze interfejsu** mają ograniczenia:
   - Kafelki OpenStreetMap: dane na licencji ODbL, serwer według Tile Usage Policy, nie do dużego ruchu.
   - Google Fonts: przeglądarka łączy się z Google. Przy wdrożeniu czcionki można dołączyć do aplikacji.
