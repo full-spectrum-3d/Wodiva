@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import io
+import re
 from datetime import date, timedelta
 
+import httpx
 import matplotlib.image as mpimg
 import numpy as np
 
@@ -14,6 +16,7 @@ from app.land.settings import land_settings
 WMS_URL = "https://drought.emergency.copernicus.eu/api/wms"
 LAYER = "cdiad"
 FIRST_DATE = date(2012, 1, 1)
+CAPABILITIES_LATEST = re.compile(r"<Name>cdiad</Name>.*?/(\d{4}-\d{2}-\d{2})/P10D", re.DOTALL)
 CLASSES = {
     (220, 5, 12): ("alarm", "deficyt opadu, niedobór wilgotności gleby i osłabiona roślinność (fAPAR)"),
     (230, 159, 0): ("ostrzeżenie", "deficyt opadu i niedobór wilgotności gleby"),
@@ -42,8 +45,32 @@ def classify(rgb: tuple[int, int, int]) -> tuple[str, str]:
     return CLASSES[best]
 
 
+async def latest_published() -> date | None:
+    key = cache.make_key("edo_latest", LAYER)
+    stamp = cache.get(key)
+    if stamp is None:
+        try:
+            response = await client().get(
+                WMS_URL,
+                params={"SERVICE": "WMS", "VERSION": "1.1.1", "REQUEST": "GetCapabilities"},
+                timeout=land_settings().source_timeout_s,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return None
+        match = CAPABILITIES_LATEST.search(response.text)
+        if match is None:
+            return None
+        stamp = match[1]
+        cache.set(key, stamp, DAY / 2)
+    return date.fromisoformat(stamp)
+
+
 async def cdi(lon: float, lat: float, day: date) -> DroughtContext:
     when = last_complete_dekad(day)
+    published = await latest_published()
+    if published is not None and when > published:
+        when = published
     if when < FIRST_DATE:
         return DroughtContext(status=DataStatus.missing)
     key = cache.make_key("edo", round(lon, 2), round(lat, 2), str(when))
