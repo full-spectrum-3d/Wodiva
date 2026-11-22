@@ -150,7 +150,7 @@ def render(report: Report, map_png: bytes | None) -> bytes:
     p = report.parcel
     summary = summarize(report)
     crop = report.water.crop_name if report.water else report.crop
-    url = f"{land_settings().public_url.rstrip('/')}/api/report/{report.id}"
+    url = f"{land_settings().public_url.rstrip('/')}"
     story: list = [
         _p("Wodiva – raport o sytuacji wodnej działki", st["title"]),
         Table(
