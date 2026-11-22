@@ -3,17 +3,22 @@ import { inject, Service } from '@angular/core';
 import { firstValueFrom, fromEvent, takeUntil } from 'rxjs';
 
 import { Report } from './report.model';
-import { AnalyzeRequest, ApiError, AssistantAnswer, Parcel, ParcelCandidate } from './wodiva-api.model';
+import { AddressQuery, AnalyzeRequest, ApiError, AssistantAnswer, Parcel, ParcelCandidate, RegionQuery } from './wodiva-api.model';
 
 @Service()
 export class WodivaApi {
   private readonly http = inject(HttpClient);
 
   findParcel(query: { id: string } | { lat: number; lon: number }): Promise<Parcel> {
-    const params = new HttpParams({ fromObject: query });
-    return firstValueFrom(this.http.get<{ parcel: Parcel }>('/api/parcel', { params }))
-      .then((res) => res.parcel)
-      .catch((err: unknown) => Promise.reject(toApiError(err)));
+    return this.getParcel('/api/parcel', query);
+  }
+
+  findParcelByAddress(query: AddressQuery): Promise<Parcel> {
+    return this.getParcel('/api/parcel/address', { ...query });
+  }
+
+  findParcelByRegion(query: RegionQuery): Promise<Parcel> {
+    return this.getParcel('/api/parcel/region', { ...query });
   }
 
   /** `abort` przerywa żądanie; obietnica jest wtedy odrzucana — wołający sprawdza `signal.aborted`. */
@@ -27,6 +32,20 @@ export class WodivaApi {
     return firstValueFrom(this.http.post<AssistantAnswer>('/api/assistant', { report_id: reportId, question })).catch(
       (err: unknown) => Promise.reject(toApiError(err)),
     );
+  }
+
+  prepareKolba(reportId: string): Promise<boolean> {
+    return firstValueFrom(this.http.post<{ ready: boolean }>('/api/assistant/prepare', { report_id: reportId })).then(
+      (res) => res.ready,
+      () => false,
+    );
+  }
+
+  private getParcel(url: string, query: Record<string, string | number>): Promise<Parcel> {
+    const params = new HttpParams({ fromObject: query });
+    return firstValueFrom(this.http.get<{ parcel: Parcel; address?: string }>(url, { params }))
+      .then((res) => (res.address ? { ...res.parcel, address_label: res.address } : res.parcel))
+      .catch((err: unknown) => Promise.reject(toApiError(err)));
   }
 }
 

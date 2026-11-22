@@ -13,6 +13,7 @@ from app.core.schemas import DataSource, LandUseShare, SourceStatus
 
 URL = "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow"
 AGRICULTURAL = {"R", "Ł", "Ps", "S", "Br", "Wsr", "W", "Lz"}
+UNAVAILABLE = "usługa niedostępna"
 OFU = (
     "R|Ł|Ps|S-R|S-Ł|S-Ps|S|Br-R|Br-Ł|Br-Ps|Br|Wsr-R|Wsr-Ł|Wsr-Ps|Wsr|W-R|W-Ł|W-Ps|W|Lz-R|Lz-Ł|Lz-Ps|Lz|"
     "Ls|N|B|Ba|Bi|Bp|Bz|K|dr|Tk|Ti|Tp|Wm|Wp|Ws|Tr"
@@ -96,7 +97,7 @@ async def land_use(geom_2180: BaseGeometry) -> tuple[list[LandUseShare], DataSou
     errors = [r for r in results if isinstance(r, SourceError)]
     hits = [r[0] for r in ok if r]
     if not hits:
-        note = "usługa niedostępna" if errors else "brak informacji o użytkach w odpowiedzi WMS"
+        note = UNAVAILABLE if errors else "brak informacji o użytkach w odpowiedzi WMS"
         return [], data_source(SourceStatus.missing, note)
     counts = Counter(hits)
     total = sum(counts.values())

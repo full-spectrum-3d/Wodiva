@@ -62,23 +62,86 @@
           </h2>
           @switch (step()) {
             @case (1) {
-              <label for="parcel-id" class="mt-4 block font-semibold">Numer działki ewidencyjnej</label>
-              <p id="parcel-id-help" class="text-sm text-text-muted">
-                Np. <span class="font-mono">141201_1.0001.6509</span> albo obręb i numer: <span class="font-mono">Krzewina 134</span>.
-              </p>
-              <input
-                id="parcel-id"
-                type="text"
-                class="field mt-2 font-mono"
-                inputmode="text"
-                autocomplete="off"
-                spellcheck="false"
-                [formField]="analysis.parcelId"
-                [attr.aria-invalid]="analysis.parcelId().touched() && analysis.parcelId().invalid()"
-                aria-describedby="parcel-id-help parcel-id-error parcel-status"
-                (input)="parcelEdited()"
-                (change)="findParcel()"
-              />
+              <fieldset class="mt-4">
+                <legend class="font-semibold">Szukaj działki po</legend>
+                <div class="search-modes mt-2">
+                  @for (m of searchModes; track m.id) {
+                    <label class="search-mode">
+                      <input type="radio" name="search-mode" class="sr-only" [value]="m.id" [checked]="searchMode() === m.id" (change)="searchMode.set(m.id)" />
+                      <span>{{ m.label }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+
+              @switch (searchMode()) {
+                @case ('adres') {
+                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="addr-city" class="block font-semibold">Miejscowość</label>
+                      <input id="addr-city" type="text" class="field mt-1" autocomplete="address-level2" [value]="address().miejscowosc"
+                        (input)="setAddress('miejscowosc', $event)" (keydown.enter)="searchAddress($event)" />
+                    </div>
+                    <div>
+                      <label for="addr-street" class="block font-semibold">Ulica <span class="font-normal text-text-muted">(jeśli jest)</span></label>
+                      <input id="addr-street" type="text" class="field mt-1" autocomplete="off" [value]="address().ulica"
+                        (input)="setAddress('ulica', $event)" (keydown.enter)="searchAddress($event)" />
+                    </div>
+                    <div>
+                      <label for="addr-number" class="block font-semibold">Numer domu</label>
+                      <input id="addr-number" type="text" class="field mt-1" autocomplete="off" [value]="address().numer"
+                        (input)="setAddress('numer', $event)" (keydown.enter)="searchAddress($event)" />
+                    </div>
+                    <div>
+                      <label for="addr-commune" class="block font-semibold">Gmina <span class="font-normal text-text-muted">(gdy miejscowości jest kilka)</span></label>
+                      <input id="addr-commune" type="text" class="field mt-1" autocomplete="off" [value]="address().gmina"
+                        (input)="setAddress('gmina', $event)" (keydown.enter)="searchAddress($event)" />
+                    </div>
+                  </div>
+                  <p class="mt-2 text-sm text-text-muted">Znajdziemy działkę, na której stoi budynek pod tym adresem. Jeśli pole leży obok, kliknij je potem na mapie.</p>
+                  <button type="button" class="btn-secondary mt-3" (click)="searchAddress()">Znajdź działkę pod adresem</button>
+                }
+                @case ('obreb') {
+                  <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label for="reg-commune" class="block font-semibold">Gmina</label>
+                      <input id="reg-commune" type="text" class="field mt-1" autocomplete="off" [value]="region().gmina"
+                        (input)="setRegion('gmina', $event)" (keydown.enter)="searchRegion($event)" />
+                    </div>
+                    <div>
+                      <label for="reg-region" class="block font-semibold">Obręb</label>
+                      <input id="reg-region" type="text" class="field mt-1" autocomplete="off" [value]="region().obreb"
+                        (input)="setRegion('obreb', $event)" (keydown.enter)="searchRegion($event)" />
+                    </div>
+                    <div>
+                      <label for="reg-number" class="block font-semibold">Numer działki</label>
+                      <input id="reg-number" type="text" class="field mt-1 font-mono" autocomplete="off" [value]="region().numer"
+                        (input)="setRegion('numer', $event)" (keydown.enter)="searchRegion($event)" />
+                    </div>
+                  </div>
+                  <p class="mt-2 text-sm text-text-muted">Nazwę obrębu i numer znajdziesz w wypisie z ewidencji albo we wniosku o dopłaty. Obręb to zwykle nazwa wsi.</p>
+                  <button type="button" class="btn-secondary mt-3" (click)="searchRegion()">Znajdź działkę</button>
+                }
+                @default {
+                  <label for="parcel-id" class="mt-4 block font-semibold">Numer działki ewidencyjnej</label>
+                  <p id="parcel-id-help" class="text-sm text-text-muted">
+                    Np. <span class="font-mono">141201_1.0001.6509</span> albo gmina, obręb i numer: <span class="font-mono">Bogatynia, Krzewina 134</span>.
+                  </p>
+                  <input
+                    id="parcel-id"
+                    type="text"
+                    class="field mt-2 font-mono"
+                    inputmode="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    [formField]="analysis.parcelId"
+                    [attr.aria-invalid]="analysis.parcelId().touched() && analysis.parcelId().invalid()"
+                    aria-describedby="parcel-id-help parcel-id-error parcel-status"
+                    (input)="parcelEdited()"
+                    (change)="findParcel()"
+                  />
+                }
+              }
               <div id="parcel-id-error">
                 @if (analysis.parcelId().touched() && analysis.parcelId().invalid()) {
                   <p class="field-error">{{ analysis.parcelId().errors()[0].message }}</p>
@@ -100,12 +163,15 @@
               <div id="parcel-status" aria-live="polite" class="mt-4">
                 @if (lookup(); as l) {
                   @if (l.state === 'loading') {
-                    <p class="text-text-muted">Szukam działki w ewidencji (ULDK)…</p>
+                    <p class="text-text-muted">Szukam działki w ewidencji…</p>
                   } @else if (l.state === 'found') {
                     <div class="rounded-md border border-border bg-surface p-4">
                       <p class="font-semibold">
                         Znaleziono działkę <span class="font-mono">{{ l.parcel.id }}</span>
                       </p>
+                      @if (l.parcel.address_label) {
+                        <p class="mt-1 text-sm">Pod adresem {{ l.parcel.address_label }}. Jeśli Twoje pole leży gdzie indziej, kliknij je na mapie.</p>
+                      }
                       <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                         @if (l.parcel.commune) {
                           <dt class="text-text-muted">Gmina</dt><dd>{{ l.parcel.commune }}</dd>
@@ -128,7 +194,17 @@
                           }
                         </p>
                       } @else if (l.parcel.is_agricultural === null) {
-                        <p class="mt-3 text-sm text-text-muted">EGiB nie podaje użytku tej działki. Sprawdź go na mapie (warstwa „Użytki”) albo w wypisie z ewidencji.</p>
+                        @if (onlyAgricultural() && l.parcel.land_use_checked) {
+                          <p class="mt-3 rounded-sm border-l-4 border-level-watch-fill bg-level-watch-tint p-3 text-level-watch-text">
+                            Ewidencja nie podaje użytku tej działki, więc nie wiemy, czy to grunt rolny. Tak bywa na terenach zabudowanych.
+                            Wybierz inną działkę albo wyłącz „Tylko działki rolne”, jeśli to Twoje pole.
+                          </p>
+                        } @else {
+                          <p class="mt-3 text-sm text-text-muted">
+                            {{ l.parcel.land_use_checked ? 'EGiB nie podaje użytku tej działki.' : 'Usługa EGiB nie odpowiedziała, więc nie sprawdziliśmy użytku.' }}
+                            Sprawdź go na mapie (warstwa „Użytki”) albo w wypisie z ewidencji.
+                          </p>
+                        }
                       }
                     </div>
                   } @else if (l.state === 'error') {
@@ -140,13 +216,17 @@
                           @for (c of l.candidates; track c.id) {
                             <li>
                               <button type="button" class="link text-left" (click)="useCandidate(c)">
-                                <span class="font-mono">{{ c.id }}</span>{{ c.commune ? ' — gm. ' + c.commune : '' }}{{ c.region ? ', obręb ' + c.region : '' }}
+                                @if (c.label) {
+                                  {{ c.label }} (działka <span class="font-mono">{{ c.id }}</span>)
+                                } @else {
+                                  <span class="font-mono">{{ c.id }}</span>{{ c.commune ? ' — gm. ' + c.commune : '' }}{{ c.region ? ', obręb ' + c.region : '' }}
+                                }
                               </button>
                             </li>
                           }
                         </ul>
                       } @else {
-                        <p class="mt-1 text-sm">Sprawdź numer w wypisie z ewidencji albo użyj swojej lokalizacji.</p>
+                        <p class="mt-1 text-sm">Sprawdź dane w wypisie z ewidencji albo kliknij działkę na mapie.</p>
                       }
                     </div>
                   }

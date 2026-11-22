@@ -13,6 +13,7 @@ BLOCK_S = 600
 _blocked_until = 0.0
 URL_HOST = "uldk.gugik.gov.pl"
 FIELDS = ["id", "teryt", "voivodeship", "county", "commune", "region", "parcel", "geom_wkt"]
+REGION_FIELDS = ["teryt", "region", "commune", "county", "voivodeship"]
 
 
 class ParcelNotFound(Exception):
@@ -30,15 +31,19 @@ def data_source(status: SourceStatus = SourceStatus.ok, note: str | None = None)
     )
 
 
-def parse_response(text: str) -> list[dict]:
+def _lines(text: str) -> list[str]:
     lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
     if not lines:
         raise ParcelNotFound("pusta odpowiedź ULDK")
     head = lines[0]
     if head.startswith("-1"):
         raise ParcelNotFound(head.split(" ", 1)[-1] if " " in head else "brak działki")
+    return lines[1:]
+
+
+def parse_response(text: str) -> list[dict]:
     rows = []
-    for line in lines[1:]:
+    for line in _lines(text):
         parts = line.split("|")
         if len(parts) < len(FIELDS):
             continue
@@ -50,7 +55,18 @@ def parse_response(text: str) -> list[dict]:
     return rows
 
 
-async def _query(request: str, key: str, extra: dict) -> list[dict]:
+def parse_regions(text: str) -> list[dict]:
+    rows = []
+    for line in _lines(text):
+        parts = line.split("|")
+        if len(parts) >= 3 and parts[0]:
+            rows.append(dict(zip(REGION_FIELDS, parts, strict=False)))
+    if not rows:
+        raise ParcelNotFound("brak obrębu o tej nazwie")
+    return rows
+
+
+async def _query(request: str, key: str, extra: dict, parse=parse_response) -> list[dict]:
     global _blocked_until
 
     async def run():
@@ -60,7 +76,7 @@ async def _query(request: str, key: str, extra: dict) -> list[dict]:
         response = await fetch("uldk", URL, params=params, retries=0)  # rolnik czeka; zapas: eksport EGiB
         if response.url.host != URL_HOST:
             raise SourceError("uldk", f"przekierowanie na {response.url.host}")
-        return parse_response(response.text)
+        return parse(response.text)
 
     try:
         return await get_cache().get_or_fetch("uldk", (request, key), run)
@@ -78,3 +94,8 @@ async def by_id(parcel_id: str) -> list[dict]:
 async def by_xy(lat: float, lon: float) -> list[dict]:
     x, y = lonlat_to_2180(lon, lat)
     return await _query("GetParcelByXY", f"{x:.1f},{y:.1f}", {"xy": f"{x:.2f},{y:.2f},2180"})
+
+
+async def regions(name: str) -> list[dict]:
+    extra = {"id": name, "result": ",".join(REGION_FIELDS)}
+    return await _query("GetRegionByNameOrId", name.lower(), extra, parse_regions)

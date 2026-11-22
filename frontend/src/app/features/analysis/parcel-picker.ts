@@ -1,7 +1,21 @@
 import { afterNextRender, Component, DestroyRef, effect, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import type * as Leaflet from 'leaflet';
 
-import { addPolishZoom, basicLayer, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../core/map/leaflet';
+import {
+  addFullscreenControl,
+  addPolishZoom,
+  basicLayer,
+  EGIB_MIN_ZOOM,
+  EGIB_WMS,
+  gugikWms,
+  LAND_USE_CLASSES,
+  landUseLegendText,
+  loadLeaflet,
+  NMT_WMS,
+  orthoLayer,
+  parcelOutline,
+  prefersReducedMotion,
+} from '../../core/map/leaflet';
 import { Parcel } from '../../core/wodiva-api.model';
 
 /** Środek i przybliżenie startowe: cała Polska. */
@@ -48,8 +62,15 @@ export interface PickedPoint {
         <span class="font-semibold">Granice działek pojawią się po przybliżeniu.</span>
       }
     </p>
-    <div class="picker-frame mt-2">
+    <div #frame class="picker-frame mt-2">
       <div #canvas class="map-canvas" role="region" aria-label="Mapa do wyboru działki" aria-describedby="picker-help"></div>
+      @if (landUseOn()) {
+        <div class="map-landuse-legend" role="note">
+          <p class="font-semibold">Użytki gruntowe (EGiB)</p>
+          <p class="mt-1">{{ landUseLegend }}</p>
+          <p class="mt-1">{{ landUseClasses }}</p>
+        </div>
+      }
       @if (failed()) {
         <p class="picker-failed" role="status">Mapa się nie wczytała. Wpisz numer działki w pole powyżej.</p>
       }
@@ -64,7 +85,11 @@ export class ParcelPicker {
   protected readonly minZoom = PARCELS_MIN_ZOOM;
   protected readonly zoom = signal(POLAND_ZOOM);
   protected readonly failed = signal(false);
+  protected readonly landUseOn = signal(false);
+  protected readonly landUseLegend = landUseLegendText();
+  protected readonly landUseClasses = LAND_USE_CLASSES;
 
+  private readonly frame = viewChild.required<ElementRef<HTMLElement>>('frame');
   private readonly canvas = viewChild.required<ElementRef<HTMLElement>>('canvas');
   private L: typeof Leaflet | null = null;
   private map: Leaflet.Map | null = null;
@@ -88,6 +113,7 @@ export class ParcelPicker {
     this.L = L;
     const map = L.map(this.canvas().nativeElement, { center: POLAND, zoom: POLAND_ZOOM, zoomControl: false });
     addPolishZoom(L, map);
+    addFullscreenControl(L, map, this.frame().nativeElement);
     this.map = map;
     // Rodzaj mapy: domyślnie podstawowa; zmiana w ustawieniach mapy (przycisk w prawym górnym rogu).
     const bases: Record<BaseName, Leaflet.Layer> = {
@@ -102,8 +128,8 @@ export class ParcelPicker {
       .layers(
         bases,
         {
-          [`Granice i numery działek (od przybliżenia ${PARCELS_MIN_ZOOM})`]: parcels,
-          [`Użytki: R grunty orne, Ł łąki, Ps pastwiska (od przybliżenia ${PARCELS_MIN_ZOOM})`]: landUse,
+          'Granice i numery działek (EGiB)': parcels,
+          'Użytki gruntowe i klasy gleb (EGiB)': landUse,
         },
         { collapsed: true },
       )
@@ -117,6 +143,12 @@ export class ParcelPicker {
       } catch {
         // bez dostępu do pamięci przeglądarki wybór obowiązuje tylko do odświeżenia
       }
+    });
+    map.on('overlayadd', (e: Leaflet.LayersControlEvent) => {
+      if (e.layer === landUse) this.landUseOn.set(true);
+    });
+    map.on('overlayremove', (e: Leaflet.LayersControlEvent) => {
+      if (e.layer === landUse) this.landUseOn.set(false);
     });
     L.control.scale({ imperial: false }).addTo(map);
     this.centerOnUser(L, map);

@@ -703,7 +703,7 @@
 
   @media (width >= 64rem) {
     .map-frame {
-      height: 28rem;
+      height: min(78vh, 46rem);
     }
   }
 
@@ -718,6 +718,26 @@
   .map-frame:fullscreen {
     height: 100vh;
     border-radius: 0;
+  }
+
+  .picker-frame:fullscreen {
+    height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .map-landuse-legend {
+    position: absolute;
+    z-index: 1000;
+    inset-inline-end: var(--space-2);
+    inset-block-end: var(--space-6);
+    width: min(17rem, calc(100% - 2 * var(--space-2)));
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    box-shadow: var(--shadow-overlay);
   }
 
   /* Strona główna: kreator (lewa) + mapa (prawa) */
@@ -1084,6 +1104,35 @@
   .crop-tile:has(:checked) .crop-check {
     visibility: visible;
   }
+
+  .search-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .search-mode span {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+    padding: var(--space-2) var(--space-4);
+    border: var(--border-control) solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+  }
+
+  .search-mode:has(:checked) span {
+    border-color: var(--color-primary);
+    background: var(--color-primary-tint);
+    color: var(--color-primary);
+  }
+
+  .search-mode:has(:focus-visible) span {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
 }
 
 /* Fokus mapy (WCAG 2.4.7). Poza @layer, bo leaflet.css nie ma warstwy i wygrywa z regułami w warstwach.
@@ -1100,4 +1149,31 @@
   z-index: 1001;
   border: 3px solid var(--color-focus);
   pointer-events: none;
+}
+
+.map-fullscreen a {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.map-fullscreen svg {
+  width: 18px;
+  height: 18px;
+}
+
+.map-maximized {
+  position: fixed !important;
+  inset: 0;
+  z-index: 3000;
+  width: 100vw;
+  height: 100dvh !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--color-surface);
+}
+
+body:has(.map-maximized) {
+  overflow: hidden;
 }

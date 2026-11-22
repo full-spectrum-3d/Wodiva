@@ -1,5 +1,7 @@
+import asyncio
 import hashlib
 import hmac
+import os
 import re
 import secrets
 from datetime import date
@@ -12,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.assistant import links
 from app.assistant.links import Link
-from app.assistant.prompt import PERSONA
+from app.assistant.prompt import OLLAMA_PERSONA, PERSONA
 from app.core.schemas import Report
 from app.land.settings import data_dir, land_settings
 from app.report.summary import summarize
@@ -31,6 +33,10 @@ class AssistantRequest(BaseModel):
     report_id: str = Field(max_length=40)
     question: str = Field(min_length=1, max_length=500)
     history: list[Turn] = Field(default_factory=list, max_length=MAX_HISTORY)
+
+
+class PrepareRequest(BaseModel):
+    report_id: str = Field(max_length=40)
 
 
 class AssistantAnswer(BaseModel):
@@ -359,27 +365,73 @@ def _strip_reasoning(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
-async def _ask_ollama(report: Report, history: list[Turn], question: str) -> str | None:
+FACTS_LIMIT = 2400
+WARM_UP_TRIES = 5
+
+
+def _ollama_options(**extra) -> dict:
     settings = land_settings()
-    system = (
-        f"{PERSONA}\n\nRejestr źródeł:\n{evidence_text()}\n\n"
-        f"Fakty z raportu działki:\n{_facts(report)}\n\nOcena (JSON): {summarize(report).model_dump_json()}"
-    )
-    messages = _messages(report.id, history, question)[-(2 * OLLAMA_TURNS + 1) :]
-    payload = {
+    return {
+        "num_ctx": settings.ollama_num_ctx,
+        "num_thread": settings.ollama_num_thread or os.cpu_count() or 1,
+        "use_mmap": settings.ollama_use_mmap,
+        **extra,
+    }
+
+
+def _ollama_payload(report: Report, messages: list[dict], num_predict: int | None = None) -> dict:
+    settings = land_settings()
+    system = f"{OLLAMA_PERSONA}\n\nFakty z raportu działki:\n{_facts(report)[:FACTS_LIMIT]}"
+    return {
         "model": settings.ollama_model,
         "stream": False,
+        "keep_alive": settings.ollama_keep_alive,
         "messages": [{"role": "system", "content": system}, *messages],
-        "options": {
-            "num_ctx": settings.ollama_num_ctx,
-            "num_predict": settings.ollama_num_predict,
-            "temperature": 0.2,
-        },
+        "options": _ollama_options(num_predict=num_predict or settings.ollama_num_predict, temperature=0.2),
     }
+
+
+async def _post_ollama(path: str, payload: dict) -> dict:
+    settings = land_settings()
     async with httpx.AsyncClient(timeout=settings.ollama_timeout_s) as client:
-        response = await client.post(settings.ollama_url.rstrip("/") + "/api/chat", json=payload)
+        response = await client.post(settings.ollama_url.rstrip("/") + path, json=payload)
         response.raise_for_status()
-    return _strip_reasoning(response.json().get("message", {}).get("content", ""))
+    return response.json()
+
+
+async def _ask_ollama(report: Report, history: list[Turn], question: str) -> str | None:
+    messages = _messages(report.id, history, question)[-(2 * OLLAMA_TURNS + 1) :]
+    data = await _post_ollama("/api/chat", _ollama_payload(report, messages))
+    return _strip_reasoning(data.get("message", {}).get("content", ""))
+
+
+def _uses_ollama() -> bool:
+    return land_settings().assistant_provider == "ollama" and _model_ready()
+
+
+async def prepare(report: Report) -> bool:
+    if report.mock or not _uses_ollama():
+        return False
+    greeting = [{"role": "user", "content": "Cześć"}]
+    try:
+        await _post_ollama("/api/chat", _ollama_payload(report, greeting, num_predict=1))
+    except (httpx.HTTPError, ValueError):
+        return False
+    return True
+
+
+async def warm_up() -> bool:
+    if not _uses_ollama():
+        return False
+    settings = land_settings()
+    payload = {"model": settings.ollama_model, "keep_alive": settings.ollama_keep_alive, "options": _ollama_options()}
+    for attempt in range(WARM_UP_TRIES):
+        try:
+            await _post_ollama("/api/generate", payload)
+            return True
+        except (httpx.HTTPError, ValueError):
+            await asyncio.sleep(3 * (attempt + 1))
+    return False
 
 
 async def _ask_anthropic(report: Report, history: list[Turn], question: str) -> str | None:

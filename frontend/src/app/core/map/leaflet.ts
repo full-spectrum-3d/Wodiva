@@ -57,3 +57,109 @@ export function parcelOutline(L: typeof Leaflet, geometry: Geometry, pane?: stri
 export function addPolishZoom(L: typeof Leaflet, map: Leaflet.Map): void {
   L.control.zoom({ zoomInTitle: 'Przybliż', zoomOutTitle: 'Oddal' }).addTo(map);
 }
+
+export const LAND_USE_LEGEND: [string, string][] = [
+  ['R', 'grunty orne'],
+  ['Ł', 'łąki'],
+  ['Ps', 'pastwiska'],
+  ['S', 'sady'],
+  ['Br', 'grunty rolne zabudowane'],
+  ['W', 'rowy'],
+  ['Lz', 'zadrzewienia'],
+  ['Ls', 'lasy'],
+  ['N', 'nieużytki'],
+  ['Wp', 'wody płynące'],
+  ['Ws', 'wody stojące'],
+  ['B', 'tereny mieszkaniowe'],
+  ['Bi', 'inne zabudowane'],
+  ['dr', 'drogi'],
+];
+export const LAND_USE_CLASSES = 'Liczba rzymska przy skrócie to klasa gleby: I najlepsza, VI najsłabsza.';
+
+export function landUseLegendText(): string {
+  return LAND_USE_LEGEND.map(([code, name]) => `${code} ${name}`).join(', ');
+}
+
+const MAXIMIZED = 'map-maximized';
+const ENTER_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
+const EXIT_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>';
+const escapeHandlers = new WeakMap<HTMLElement, (event: KeyboardEvent) => void>();
+
+export function isFullscreen(target: HTMLElement): boolean {
+  return document.fullscreenElement === target || target.classList.contains(MAXIMIZED);
+}
+
+function setMaximized(target: HTMLElement, on: boolean): void {
+  target.classList.toggle(MAXIMIZED, on);
+  const previous = escapeHandlers.get(target);
+  if (previous) {
+    document.removeEventListener('keydown', previous);
+    escapeHandlers.delete(target);
+  }
+  if (on) {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMaximized(target, false);
+    };
+    escapeHandlers.set(target, handler);
+    document.addEventListener('keydown', handler);
+  }
+  target.dispatchEvent(new Event('fullscreenchange'));
+}
+
+export function toggleFullscreen(target: HTMLElement): void {
+  if (document.fullscreenElement) {
+    void document.exitFullscreen();
+    return;
+  }
+  if (target.classList.contains(MAXIMIZED)) {
+    setMaximized(target, false);
+    return;
+  }
+  if (document.fullscreenEnabled && typeof target.requestFullscreen === 'function') {
+    const fallback = setTimeout(() => {
+      if (document.fullscreenElement !== target) setMaximized(target, true);
+    }, 800);
+    target.requestFullscreen().then(
+      () => {
+        clearTimeout(fallback);
+        if (target.classList.contains(MAXIMIZED)) setMaximized(target, false);
+      },
+      () => {
+        clearTimeout(fallback);
+        if (!target.classList.contains(MAXIMIZED)) setMaximized(target, true);
+      },
+    );
+  } else {
+    setMaximized(target, true);
+  }
+}
+
+export function addFullscreenControl(L: typeof Leaflet, map: Leaflet.Map, target: HTMLElement): void {
+  const control = new L.Control({ position: 'topleft' });
+  control.onAdd = () => {
+    const bar = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-fullscreen');
+    const button = L.DomUtil.create('a', '', bar) as HTMLAnchorElement;
+    button.href = '#';
+    button.setAttribute('role', 'button');
+    const sync = () => {
+      const full = isFullscreen(target);
+      const label = full ? 'Zamknij pełny ekran' : 'Pełny ekran';
+      button.title = label;
+      button.setAttribute('aria-label', label);
+      button.setAttribute('aria-pressed', String(full));
+      button.innerHTML = full ? EXIT_ICON : ENTER_ICON;
+      setTimeout(() => map.invalidateSize());
+    };
+    sync();
+    target.addEventListener('fullscreenchange', sync);
+    L.DomEvent.disableClickPropagation(bar);
+    L.DomEvent.on(button, 'click', (event) => {
+      L.DomEvent.preventDefault(event);
+      toggleFullscreen(target);
+    });
+    return bar;
+  };
+  control.addTo(map);
+}

@@ -9,9 +9,11 @@ export interface Parcel {
   number: string | null;
   area_ha: number;
   is_agricultural: boolean | null;
+  land_use_checked?: boolean;
   land_use?: { code: string; soil_class: string | null; share: number | null }[];
   /** Granica działki, GeoJSON w WGS84 (EPSG:4326). */
   geometry_geojson?: Geometry;
+  address_label?: string;
 }
 
 export interface ParcelCandidate {
@@ -19,6 +21,20 @@ export interface ParcelCandidate {
   commune: string | null;
   region: string | null;
   county: string | null;
+  label?: string | null;
+}
+
+export interface AddressQuery {
+  miejscowosc: string;
+  ulica: string;
+  numer: string;
+  gmina: string;
+}
+
+export interface RegionQuery {
+  gmina: string;
+  obreb: string;
+  numer: string;
 }
 
 export interface Crop {

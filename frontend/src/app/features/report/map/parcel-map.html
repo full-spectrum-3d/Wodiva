@@ -23,6 +23,13 @@
       @if (isFullscreen()) {
         <button type="button" class="btn-secondary map-exit" (click)="fullscreen()">Zamknij pełny ekran</button>
       }
+      @if (landUseOn()) {
+        <div class="map-landuse-legend" role="note">
+          <p class="font-semibold">Użytki gruntowe (EGiB)</p>
+          <p class="mt-1">{{ landUseLegend }}</p>
+          <p class="mt-1">{{ landUseClasses }}</p>
+        </div>
+      }
       @if (activeRaster(); as o) {
         <div class="map-ndvi-bar" role="status">
           <p class="font-semibold">{{ o.title }}{{ o.date ? ', zdjęcie ' + o.date : '' }}</p>
@@ -52,6 +59,7 @@
     @if (!hasDepressions()) {
       <p class="mt-2 text-sm text-text-muted">Na działce nie wykryto zagłębień terenu (teren płaski albo zbyt mała rozdzielczość modelu).</p>
     }
+    <p class="mt-2 text-sm text-text-muted">Skróty na warstwie „Użytki gruntowe i klasy gleb”: {{ landUseLegend }}. {{ landUseClasses }}</p>
   </details>
 
   <dl class="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">

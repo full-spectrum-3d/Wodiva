@@ -18,6 +18,7 @@ TTL_S = {
     "imgw_now": 1800,
     "imgw_missing": 86400,
     "soilgrids": 365 * 86400,
+    "uug": 30 * 86400,
     "default": 86400,
 }
 

@@ -16,6 +16,7 @@ SOURCE_TIMEOUT_S = {
     "openmeteo_archive": 25.0,
     "imgw": 10.0,
     "soilgrids": 10.0,
+    "uug": 8.0,
 }
 
 timings: ContextVar[dict[str, float] | None] = ContextVar("timings", default=None)

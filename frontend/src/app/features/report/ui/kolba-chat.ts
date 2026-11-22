@@ -56,6 +56,9 @@ export function modeLabel(mode: string): string {
     <div aria-live="polite" class="mt-3">
       @if (sending()) {
         <p class="flex items-center gap-2 text-text-muted"><app-kolba-avatar [size]="24" />Kolba pisze…</p>
+        @if (slow()) {
+          <p class="mt-1 text-sm text-text-muted">Model AI liczy odpowiedź na procesorze serwera, to może potrwać do dwóch minut.</p>
+        }
       }
     </div>
 
@@ -139,6 +142,8 @@ export class KolbaChat {
 
   protected readonly history = signal<Exchange[]>([]);
   protected readonly sending = signal(false);
+  protected readonly slow = signal(false);
+  private prepared = false;
   protected readonly error = signal<string | null>(null);
   /** Po pierwszej odpowiedzi „bez AI” wiadomo, że backend nie ma klucza — zostają tylko gotowe pytania. */
   protected readonly offline = computed(() => this.history().some((x) => x.answer.mode === 'bez AI'));
@@ -152,6 +157,12 @@ export class KolbaChat {
     void this.ask(text);
   }
 
+  prepare(): void {
+    if (this.prepared) return;
+    this.prepared = true;
+    void this.api.prepareKolba(this.reportId());
+  }
+
   protected retry(): void {
     void this.ask(this.lastQuestion);
   }
@@ -161,6 +172,7 @@ export class KolbaChat {
     this.lastQuestion = question;
     this.sending.set(true);
     this.error.set(null);
+    const slowTimer = setTimeout(() => this.slow.set(true), 8000);
     try {
       const answer = await this.api.askKolba(this.reportId(), question);
       this.history.update((h) => [...h, { question, answer }]);
@@ -171,6 +183,8 @@ export class KolbaChat {
       this.error.set((err as ApiError).message);
       return false;
     } finally {
+      clearTimeout(slowTimer);
+      this.slow.set(false);
       this.sending.set(false);
     }
   }

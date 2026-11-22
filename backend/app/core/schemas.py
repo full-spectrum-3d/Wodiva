@@ -52,6 +52,7 @@ class Parcel(BaseModel):
     parts: int = 1
     land_use: list[LandUseShare] = Field(default_factory=list)
     is_agricultural: bool | None = None
+    land_use_checked: bool = False
     size_class: Literal["mała", "średnia", "duża"]
     flags: list[str] = Field(default_factory=list)
     source: str = "ULDK"

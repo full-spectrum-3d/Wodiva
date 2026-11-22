@@ -5,7 +5,7 @@ import { form, FormField, required, submit, validate } from '@angular/forms/sign
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { WodivaApi } from '../../core/wodiva-api';
-import { ApiError, Crop, Parcel, ParcelCandidate } from '../../core/wodiva-api.model';
+import { AddressQuery, ApiError, Crop, Parcel, ParcelCandidate, RegionQuery } from '../../core/wodiva-api.model';
 import { AnalysisProgress } from './analysis-progress';
 import { ParcelPicker, PickedPoint } from './parcel-picker';
 
@@ -20,6 +20,13 @@ export const WIZARD_STEPS = [
   { n: 3, label: 'Uprawa' },
 ] as const;
 export type WizardStep = (typeof WIZARD_STEPS)[number]['n'];
+
+export type SearchMode = 'id' | 'adres' | 'obreb';
+export const SEARCH_MODES: { id: SearchMode; label: string }[] = [
+  { id: 'id', label: 'Numer działki' },
+  { id: 'adres', label: 'Adres' },
+  { id: 'obreb', label: 'Gmina i obręb' },
+];
 
 type ParcelLookup =
   | { state: 'idle' }
@@ -37,6 +44,16 @@ export function toLocalIso(d: Date): string {
 export function analysisDateRange(today = new Date()): { min: string; max: string } {
   const earliest = new Date(today.getFullYear() - ANALYSIS_YEARS, today.getMonth(), today.getDate());
   return { min: toLocalIso(earliest), max: toLocalIso(today) };
+}
+
+export function nonAgriculturalReason(parcel: Parcel): string | null {
+  if (parcel.is_agricultural === false) {
+    return 'To nie jest działka rolna. Wybierz działkę rolną albo wyłącz „Tylko działki rolne”.';
+  }
+  if (parcel.is_agricultural == null && parcel.land_use_checked) {
+    return 'Ewidencja nie podaje użytku tej działki, więc nie wiemy, czy to grunt rolny. Wybierz inną działkę albo wyłącz „Tylko działki rolne”.';
+  }
+  return null;
 }
 
 @Component({
@@ -59,12 +76,13 @@ export class AnalysisFormPage {
     // Po trim(), bo tak wysyłamy do backendu (AnalyzeRequest.parcel_id: 3–80 znaków).
     validate(p.parcelId, ({ value }) => {
       const v = value().trim();
-      if (!v) return { kind: 'required', message: 'Podaj numer działki albo użyj swojej lokalizacji.' };
+      if (!v) return { kind: 'required', message: 'Podaj numer działki, wyszukaj adres albo kliknij działkę na mapie.' };
       if (v.length < 3) return { kind: 'minLength', message: 'Numer działki jest za krótki.' };
       if (v.length > 80) return { kind: 'maxLength', message: 'Numer działki jest za długi.' };
       const found = this.lookup?.();
-      if (this.onlyAgricultural() && found?.state === 'found' && found.parcel.id === v && found.parcel.is_agricultural === false) {
-        return { kind: 'nonAgricultural', message: 'To nie jest działka rolna. Wybierz działkę rolną albo wyłącz „Tylko działki rolne”.' };
+      if (this.onlyAgricultural() && found?.state === 'found' && found.parcel.id === v) {
+        const reason = nonAgriculturalReason(found.parcel);
+        if (reason) return { kind: 'nonAgricultural', message: reason };
       }
       return undefined;
     });
@@ -85,6 +103,10 @@ export class AnalysisFormPage {
     return l.state === 'found' ? l.parcel : null;
   });
   protected readonly steps = WIZARD_STEPS;
+  protected readonly searchModes = SEARCH_MODES;
+  protected readonly searchMode = signal<SearchMode>('id');
+  protected readonly address = signal<AddressQuery>({ miejscowosc: '', ulica: '', numer: '', gmina: '' });
+  protected readonly region = signal<RegionQuery>({ gmina: '', obreb: '', numer: '' });
   protected readonly step = signal<WizardStep>(1);
   protected readonly locating = signal(false);
   protected readonly showSummary = signal(false);
@@ -113,11 +135,43 @@ export class AnalysisFormPage {
     const suffix = classes.length ? ` (${classes.slice(0, 5).join(', ')})` : '';
     if (parcel.is_agricultural === true) return `grunt rolny${suffix}`;
     if (parcel.is_agricultural === false) return `grunt nierolny${suffix}`;
-    return 'brak danych o użytku w EGiB';
+    return parcel.land_use_checked ? 'brak danych o użytku w EGiB' : 'EGiB nie odpowiedział, użytek nieznany';
   }
 
   protected setOnlyAgricultural(event: Event): void {
     this.onlyAgricultural.set((event.target as HTMLInputElement).checked);
+  }
+
+  protected setAddress(key: keyof AddressQuery, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.address.update((a) => ({ ...a, [key]: value }));
+  }
+
+  protected setRegion(key: keyof RegionQuery, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.region.update((r) => ({ ...r, [key]: value }));
+  }
+
+  protected searchAddress(event?: Event): void {
+    event?.preventDefault();
+    const a = this.address();
+    const query = { miejscowosc: a.miejscowosc.trim(), ulica: a.ulica.trim(), numer: a.numer.trim(), gmina: a.gmina.trim() };
+    if (query.miejscowosc.length < 2 || !query.numer) {
+      this.lookup.set({ state: 'error', message: 'Podaj miejscowość i numer domu.', candidates: [] });
+      return;
+    }
+    this.runLookup(this.api.findParcelByAddress(query));
+  }
+
+  protected searchRegion(event?: Event): void {
+    event?.preventDefault();
+    const r = this.region();
+    const query = { gmina: r.gmina.trim(), obreb: r.obreb.trim(), numer: r.numer.trim() };
+    if (query.gmina.length < 2 || query.obreb.length < 2 || !query.numer) {
+      this.lookup.set({ state: 'error', message: 'Podaj gminę, obręb i numer działki.', candidates: [] });
+      return;
+    }
+    this.runLookup(this.api.findParcelByRegion(query));
   }
 
   protected findParcel(): void {
@@ -136,7 +190,8 @@ export class AnalysisFormPage {
 
   protected useCandidate(candidate: ParcelCandidate): void {
     this.model.update((m) => ({ ...m, parcelId: candidate.id }));
-    this.findParcel();
+    this.lastLookedUp = '';
+    this.runLookup(this.api.findParcel({ id: candidate.id }));
   }
 
   /** Kliknięcie w mapę: działka w tym punkcie (ULDK) — numer trafia do pola, granica na mapę. */

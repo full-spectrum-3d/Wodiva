@@ -45,6 +45,16 @@ def _optional_module(name: str):
         raise
 
 
+async def _warm_assistant() -> None:
+    kolba = _optional_module("app.assistant.kolba")
+    if kolba is None:
+        return
+    try:
+        await kolba.warm_up()
+    except Exception:
+        log.exception("assistant warm-up failed")
+
+
 async def _housekeeping() -> None:
     while True:
         try:
@@ -57,10 +67,12 @@ async def _housekeeping() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     task = asyncio.create_task(_housekeeping())
+    warm = asyncio.create_task(_warm_assistant())
     yield
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    for job in (task, warm):
+        job.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await job
     await close_client()
 
 

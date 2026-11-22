@@ -25,9 +25,12 @@ class LandSettings(BaseSettings):
     assistant_provider: str = "ollama"
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
-    ollama_num_ctx: int = 8192
-    ollama_num_predict: int = 700
-    ollama_timeout_s: float = 90.0
+    ollama_num_ctx: int = 3072
+    ollama_num_predict: int = 250
+    ollama_timeout_s: float = 150.0
+    ollama_keep_alive: str = "2h"
+    ollama_use_mmap: bool = True
+    ollama_num_thread: int = 0
     anthropic_api_key: str = Field(
         default="", validation_alias=AliasChoices("ANTHROPIC_API_KEY", "WODIVA_ANTHROPIC_API_KEY")
     )

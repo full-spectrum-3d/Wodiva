@@ -58,6 +58,7 @@ export class ReportPage {
 
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
   private readonly kolbaDialog = viewChild<ElementRef<HTMLDialogElement>>('kolbaDialog');
+  private readonly kolbaChat = viewChild(KolbaChat);
 
   constructor() {
     this.title.setTitle('Raport — Wodiva');
@@ -78,6 +79,7 @@ export class ReportPage {
   /** showModal(): fokus w środku, Esc zamyka, po zamknięciu przeglądarka oddaje fokus wyzwalaczowi. */
   openKolba(): void {
     this.kolbaDialog()?.nativeElement.showModal();
+    this.kolbaChat()?.prepare();
   }
 
   protected print(): void {

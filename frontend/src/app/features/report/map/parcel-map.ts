@@ -3,7 +3,23 @@ import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, i
 import type { Geometry, Point } from 'geojson';
 import type * as Leaflet from 'leaflet';
 
-import { addPolishZoom, BDOT_WMS, EGIB_MIN_ZOOM, EGIB_WMS, gugikWms, loadLeaflet, NMT_WMS, orthoLayer, parcelOutline, prefersReducedMotion } from '../../../core/map/leaflet';
+import {
+  addFullscreenControl,
+  addPolishZoom,
+  BDOT_WMS,
+  EGIB_MIN_ZOOM,
+  EGIB_WMS,
+  gugikWms,
+  isFullscreen,
+  LAND_USE_CLASSES,
+  landUseLegendText,
+  loadLeaflet,
+  NMT_WMS,
+  orthoLayer,
+  parcelOutline,
+  prefersReducedMotion,
+  toggleFullscreen,
+} from '../../../core/map/leaflet';
 import { RasterOverlay, Report } from '../../../core/report.model';
 import { MapFocus } from './map-focus';
 import { MapObject, mapObjects } from './map-objects';
@@ -81,6 +97,9 @@ export class ParcelMap {
   protected readonly rasterGradient = computed(() => `linear-gradient(to right, ${this.activeRaster()?.colors.join(', ') ?? ''})`);
   protected readonly failed = signal(false);
   protected readonly isFullscreen = signal(false);
+  protected readonly landUseOn = signal(false);
+  protected readonly landUseLegend = landUseLegendText();
+  protected readonly landUseClasses = LAND_USE_CLASSES;
   /** Komunikat dla czytnika ekranu po „Pokaż na mapie” (fokus zostaje na przycisku). */
   protected readonly announcement = signal('');
   protected readonly legendKinds = computed(() => [...new Set(this.objects().map((o) => o.kind))].map((k) => ({ kind: k, label: LEGEND_KINDS[k] })));
@@ -114,9 +133,7 @@ export class ParcelMap {
   }
 
   protected fullscreen(): void {
-    const el = this.frame().nativeElement;
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void el.requestFullscreen?.();
+    toggleFullscreen(this.frame().nativeElement);
   }
 
   protected showOnMap(key: string): void {
@@ -132,8 +149,9 @@ export class ParcelMap {
     const map = L.map(this.canvas().nativeElement, { zoomControl: false, attributionControl: true, dragging: !L.Browser.mobile });
     this.map = map;
     addPolishZoom(L, map);
+    addFullscreenControl(L, map, this.frame().nativeElement);
     this.frame().nativeElement.addEventListener('fullscreenchange', () => {
-      const full = document.fullscreenElement === this.frame().nativeElement;
+      const full = isFullscreen(this.frame().nativeElement);
       this.isFullscreen.set(full);
       // przycisk „Pełny ekran” jest poza ramką: fokus na „Zamknij pełny ekran” i z powrotem po wyjściu
       setTimeout(() => {
@@ -188,8 +206,9 @@ export class ParcelMap {
       rasterLayers.set(layer, raster);
       overlays[`${raster.title}${raster.date ? ` (${raster.date})` : ''}`] = layer;
     }
-    overlays[`Działki sąsiednie (EGiB, od przybliżenia ${EGIB_MIN_ZOOM})`] = wms(EGIB_WMS, 'dzialki,numery_dzialek', EGIB_MIN_ZOOM);
-    overlays[`Użytki i klasy gleb (EGiB, od przybliżenia ${EGIB_MIN_ZOOM})`] = wms(EGIB_WMS, 'uzytki,kontury', EGIB_MIN_ZOOM);
+    const landUse = wms(EGIB_WMS, 'uzytki,kontury', EGIB_MIN_ZOOM);
+    overlays['Działki sąsiednie (EGiB)'] = wms(EGIB_WMS, 'dzialki,numery_dzialek', EGIB_MIN_ZOOM);
+    overlays['Użytki gruntowe i klasy gleb (EGiB)'] = landUse;
     overlays['Rowy, rzeki, kanały (BDOT10k)'] = wms(BDOT_WMS, 'row,rz,rzOk,kan,kanOkr');
     overlays['Wody i mokradła (BDOT10k)'] = wms(BDOT_WMS, 'WPow,Mo,Szu');
     overlays['Lasy i zadrzewienia (BDOT10k)'] = wms(BDOT_WMS, 'TLes,RKr');
@@ -204,6 +223,7 @@ export class ParcelMap {
       close?.setAttribute('title', 'Zamknij okienko');
     });
     map.on('overlayadd', (e) => {
+      if (e.layer === landUse) this.landUseOn.set(true);
       const raster = rasterLayers.get(e.layer);
       if (!raster) return;
       this.activeRaster.set(raster);
@@ -212,6 +232,7 @@ export class ParcelMap {
       });
     });
     map.on('overlayremove', (e) => {
+      if (e.layer === landUse) this.landUseOn.set(false);
       if (rasterLayers.get(e.layer) === this.activeRaster()) this.activeRaster.set(null);
     });
 
